@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inside a 100,000-document RAG knowledge base: an animated walkthrough</title>
+<meta name="description" content="Step-by-step animated explainer of a production RAG pipeline: ingestion, chunking, metadata filtering, BM25, semantic search, hybrid retrieval with RRF and reranking, GraphRAG, and the end-to-end query path.">
+<style>
+:root{--bg:#f4f6fa;--panel:#fff;--ink:#0f172a;--muted:#5b6478;--line:#d5dbe5;--blue:#2563eb;--blue-soft:#dbeafe;--focus:#f59e0b}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{max-width:1280px;margin:0 auto;padding:20px 24px 6px}
+h1{font-size:22px;margin:0 0 4px}
+header p{margin:0;color:var(--muted)}
+.app{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px;max-width:1280px;margin:0 auto;padding:12px 24px 32px}
+nav ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+nav button{width:100%;text-align:left;background:transparent;border:1px solid transparent;border-radius:8px;padding:7px 10px;font:inherit;font-size:14px;color:var(--ink);cursor:pointer;display:flex;gap:8px;align-items:baseline}
+nav button .n{color:var(--muted);font-variant-numeric:tabular-nums;min-width:1.5em}
+nav button:hover{background:#e9eef5}
+nav button[aria-current="step"]{background:var(--blue-soft);border-color:#bfdbfe;font-weight:600}
+nav button:focus-visible,.controls button:focus-visible,.phases button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.stage svg{display:block;width:100%;height:auto;aspect-ratio:16/9}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:12px}
+.step-title{font-size:18px;font-weight:700;margin:0 0 2px}
+.step-summary{margin:0;color:var(--muted)}
+.caption{min-height:3.4em;margin:10px 0 0;padding:10px 12px;background:#f1f5f9;border-radius:8px}
+.caption b{color:var(--blue)}
+.phases{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.phases button{font:inherit;font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer}
+.phases button[aria-current="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.controls{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.controls button{font:inherit;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
+.controls button.primary{background:var(--blue);border-color:var(--blue);color:#fff;min-width:110px;font-weight:600}
+.controls input[type=range]{flex:1;min-width:160px;accent-color:var(--blue)}
+.controls label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:14px}
+.controls select{font:inherit;padding:4px 6px;border-radius:6px;border:1px solid var(--line);background:#fff}
+kbd{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef2f7;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px}
+code{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef2f7;border-radius:4px;padding:0 4px}
+.hint{color:var(--muted);font-size:13px;margin:8px 0 0}
+footer{max-width:1280px;margin:0 auto;padding:8px 24px 28px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+@media (max-width:900px){.app{grid-template-columns:1fr}nav ol{flex-direction:row;overflow-x:auto;padding-bottom:6px}nav button{white-space:nowrap}}
+/* SVG vocabulary */
+svg text{font-family:inherit;fill:var(--ink)}
+svg .t-xs{font-size:10.5px}svg .t-sm{font-size:12px}svg .t-md{font-size:14px}svg .t-lg{font-size:18px;font-weight:700}svg .t-big{font-size:30px;font-weight:700}
+svg .t-mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+svg .bold{font-weight:700}svg .muted{fill:#5b6478}svg .white{fill:#fff}svg .blue{fill:#2563eb}svg .red{fill:#dc2626}svg .green{fill:#15803d}svg .amber{fill:#b45309}svg .violet{fill:#6d28d9}
+svg .box{fill:#fff;stroke:#cbd5e1;stroke-width:1.2}
+svg .box-grey{fill:#f1f5f9;stroke:#cbd5e1;stroke-width:1}
+svg .box-dark{fill:#0f172a;stroke:#0f172a}
+svg .box-blue{fill:#dbeafe;stroke:#93c5fd;stroke-width:1.2}
+svg .box-teal{fill:#ccfbf1;stroke:#5eead4;stroke-width:1.2}
+svg .box-amber{fill:#fef3c7;stroke:#fcd34d;stroke-width:1.2}
+svg .box-amber-soft{fill:#fffbeb;stroke:#fde68a;stroke-width:1.2}
+svg .box-red{fill:#fee2e2;stroke:#fca5a5;stroke-width:1.2}
+svg .box-green{fill:#dcfce7;stroke:#86efac;stroke-width:1.2}
+svg .box-violet{fill:#ede9fe;stroke:#c4b5fd;stroke-width:1.2}
+svg .hl{stroke:#d97706 !important;stroke-width:2.5 !important}
+svg .tile-blue{fill:#3b82f6}svg .tile-amber{fill:#f59e0b}svg .tile-teal{fill:#14b8a6}svg .tile-green{fill:#22c55e}svg .tile-grey{fill:#cbd5e1}svg .tile-red{fill:#ef4444}svg .tile-violet{fill:#8b5cf6}
+svg .chip{fill:#f1f5f9;stroke:#cbd5e1}svg .chip-blue{fill:#dbeafe;stroke:#93c5fd}svg .chip-amber{fill:#fef3c7;stroke:#fcd34d}svg .chip-teal{fill:#ccfbf1;stroke:#5eead4}svg .chip-red{fill:#fee2e2;stroke:#fca5a5}svg .chip-green{fill:#dcfce7;stroke:#86efac}svg .chip-violet{fill:#ede9fe;stroke:#c4b5fd}svg .chip-dark{fill:#0f172a;stroke:#0f172a}
+svg .wire{fill:none;stroke:#94a3b8;stroke-width:1.5}
+svg .wire-active{fill:none;stroke:#2563eb;stroke-width:2.2}
+svg .wire-faint{stroke:#e2e8f0}svg .wire-dash{stroke-dasharray:5 4}svg .wire-amber{stroke:#d97706}svg .wire-red{stroke:#dc2626;stroke-width:2}svg .wire-green{stroke:#16a34a}
+svg .ring{fill:none;stroke:#2563eb;stroke-width:2}svg .ring-green{stroke:#16a34a}svg .ring-red{stroke:#dc2626}svg .ring-amber{stroke:#d97706}
+svg .star{fill:#f59e0b;stroke:#b45309;stroke-width:1}
+svg .fill-blue{fill:#3b82f6;stroke:none}
+svg .hull{stroke-width:1.5;stroke-dasharray:6 4}
+</style>
+</head>
+<body>
+<header>
+  <h1>Inside a 100,000-document RAG knowledge base</h1>
+  <p>An animated walkthrough of the pipeline, from raw PDFs and images to grounded, cited answers. Pick a step, press play, or scrub the timeline.</p>
+</header>
+<div class="app">
+  <nav aria-label="Steps"><ol id="steps"></ol></nav>
+  <main>
+    <div class="stage"><svg id="stage" viewBox="0 0 960 540" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="step-title" aria-describedby="caption"></svg></div>
+    <section class="panel">
+      <h2 class="step-title" id="step-title"></h2>
+      <p class="step-summary" id="step-summary"></p>
+      <div class="caption" id="caption" aria-live="polite"></div>
+      <div class="phases" id="phases" role="group" aria-label="Phases in this step"></div>
+      <div class="controls">
+        <button id="prev" type="button" aria-label="Previous step">&larr; Prev</button>
+        <button id="play" type="button" class="primary">Play</button>
+        <button id="next" type="button" aria-label="Next step">Next &rarr;</button>
+        <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Step timeline">
+        <label>Speed <select id="speed" aria-label="Playback speed"><option value="0.5">0.5&times;</option><option value="1" selected>1&times;</option><option value="1.5">1.5&times;</option><option value="2">2&times;</option></select></label>
+        <label><input type="checkbox" id="autoadv"> Auto-advance</label>
+      </div>
+      <p class="hint">Keyboard: <kbd>&larr;</kbd> <kbd>&rarr;</kbd> change step, <kbd>Space</kbd> play/pause. Link to a moment with <code>#s=&lt;step&gt;&amp;t=&lt;0&ndash;1&gt;</code>.</p>
+    </section>
+  </main>
+</div>
+<footer>&copy; 2026 Ardya Dipta Nandaviri. All rights reserved.</footer>
+<pre id="errlog" hidden></pre>
+<script>
+(function(){
+'use strict';
+window.addEventListener('error',function(e){ var d=document.getElementById('errlog'); if(d){ d.textContent+=(e.message||'error')+' @line '+(e.lineno||'?')+'\n'; if(location.search.indexOf('debug')>-1) d.hidden=false; } });
+
+/* ---------- tiny deterministic animation toolkit ---------- */
+const NS='http://www.w3.org/2000/svg';
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>{ if(a===undefined) a=0; if(b===undefined) b=1; return Math.max(a,Math.min(b,v)); };
+const lerp=(a,b,t)=>a+(b-a)*t;
+const easeIO=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const easeOut=t=>1-Math.pow(1-t,3);
+const linear=t=>t;
+function seg(t,a,b,ease){ return (ease||easeIO)(clamp((t-a)/(b-a))); }
+const fmt=n=>n.toLocaleString('en-US');
+function rng(seed){ let a=seed>>>0; return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function el(name,attrs,parent){ const e=document.createElementNS(NS,name); if(attrs) for(const k in attrs){ const v=attrs[k]; if(v!==undefined&&v!==null) e.setAttribute(k,v); } if(parent) parent.appendChild(e); return e; }
+function g(parent,attrs){ return el('g',attrs||{},parent); }
+function txt(parent,x,y,s,cls,anchor,extra){ const e=el('text',Object.assign({x:x,y:y,'class':cls||'t-sm','text-anchor':anchor||'start'},extra||{}),parent); e.textContent=s; return e; }
+function lines(parent,x,y,arr,cls,lh){ const gg=g(parent); arr.forEach((s,i)=>txt(gg,x,y+i*(lh||14),s,cls)); return gg; }
+function rect(parent,x,y,w,h,r,cls,extra){ return el('rect',Object.assign({x:x,y:y,width:w,height:h,rx:r==null?6:r,ry:r==null?6:r,'class':cls==null?'box':cls},extra||{}),parent); }
+function circ(parent,cx,cy,r,cls,extra){ return el('circle',Object.assign({cx:cx,cy:cy,r:r,'class':cls==null?'':cls},extra||{}),parent); }
+function line(parent,x1,y1,x2,y2,cls,extra){ return el('line',Object.assign({x1:x1,y1:y1,x2:x2,y2:y2,'class':cls||'wire'},extra||{}),parent); }
+function path(parent,d,cls,extra){ return el('path',Object.assign({d:d,'class':cls||'wire'},extra||{}),parent); }
+function arrow(parent,x1,y1,x2,y2,cls,marker){ return path(parent,'M'+x1+' '+y1+' L'+x2+' '+y2,cls||'wire',{'marker-end':'url(#'+(marker||'arr')+')'}); }
+function curve(parent,x1,y1,x2,y2,cls,marker){ const mx=(x1+x2)/2; return path(parent,'M'+x1+' '+y1+' C '+mx+' '+y1+', '+mx+' '+y2+', '+x2+' '+y2,cls||'wire',marker?{'marker-end':'url(#'+marker+')'}:{}); }
+function op(e,v){ e.setAttribute('opacity',clamp(v).toFixed(3)); }
+function tr(e,x,y,s){ e.setAttribute('transform','translate('+x.toFixed(2)+' '+y.toFixed(2)+')'+(s==null?'':' scale('+s.toFixed(3)+')')); }
+function chip(parent,x,y,label,cls,fs){ fs=fs||11; const w=Math.max(26,Math.round(label.length*fs*0.6+14)); const gg=g(parent); rect(gg,x,y,w,20,10,cls||'chip'); txt(gg,x+w/2,y+14,label,'t-xs'+((cls||'').indexOf('dark')>-1?' white':''),'middle'); gg._w=w; return gg; }
+function docIcon(parent,x,y,kind,s){ const gg=g(parent,{transform:'translate('+x+' '+y+') scale('+(s==null?1:s)+')'}); const fill=kind==='pdf'?'#fff':kind==='scan'?'#f1f5f9':'#ecfeff';
+  el('path',{d:'M0 0 H12 L18 6 V24 H0 Z',fill:fill,stroke:'#94a3b8','stroke-width':1},gg); el('path',{d:'M12 0 V6 H18',fill:'none',stroke:'#94a3b8','stroke-width':1},gg);
+  if(kind==='pdf'){ el('rect',{x:0,y:16,width:18,height:5,fill:'#ef4444'},gg); el('rect',{x:3,y:6,width:8,height:1.5,fill:'#94a3b8'},gg); el('rect',{x:3,y:10,width:12,height:1.5,fill:'#94a3b8'},gg); }
+  else if(kind==='scan'){ for(let i=0;i<3;i++) el('rect',{x:3,y:9+i*4,width:12,height:1.5,fill:'#94a3b8'},gg); el('rect',{x:0.5,y:0.5,width:17,height:23,fill:'none',stroke:'#94a3b8','stroke-dasharray':'2 2'},gg); }
+  else { el('path',{d:'M3 20 L8 13 L11 17 L13 15 L16 20 Z',fill:'#0d9488'},gg); el('circle',{cx:6,cy:10,r:1.6,fill:'#0d9488'},gg); }
+  return gg; }
+function star(parent,cx,cy,r,cls){ let d=''; for(let i=0;i<10;i++){ const a=-Math.PI/2+i*Math.PI/5, rr=i%2?r*0.45:r; d+=(i?'L':'M')+(cx+rr*Math.cos(a)).toFixed(1)+' '+(cy+rr*Math.sin(a)).toFixed(1)+' '; } return path(parent,d+'Z',cls||'star'); }
+function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+function typeText(e,full,p){ e.textContent=full.slice(0,Math.round(full.length*clamp(p))); }
+
+/* Each step: setup(svg) builds the scene and returns {render(t)} with t in [0,1]. Rendering is a pure function of t, so play, pause and scrub are all the same code path. */
+const STEPS=[];
+
+/* ---------- 1. The corpus at scale ---------- */
+STEPS.push({
+id:'corpus',nav:'The corpus at scale',title:'1. The corpus: 100,000 mixed documents',
+summary:'Fix the numbers first. They decide where the money and the engineering time go.',
+duration:10000,
+phases:[
+{at:0,text:'<b>100,000 documents</b> arrive from file shares, wikis and ticketing: about 70% text-native PDFs and Office files, 20% scanned PDFs, 10% standalone images.'},
+{at:.32,text:'At ~15 pages each that is <b>~1.5 million pages</b>. Parsing them (layout analysis, OCR, vision captions) costs 10 to 100&times; more per page than embedding.'},
+{at:.6,text:'Structure-aware chunking at ~400 tokens yields <b>~2 million chunks</b>. Embedding all of them costs tens of dollars, so never design around avoiding re-embedding.'},
+{at:.88,text:'The rule of thumb for the whole system: <b>parsing is where quality is won or lost</b>. The retrieval algorithms are the easy part.'}
+],
+setup(svg){
+ const R=rng(7);
+ const cols=[{x:40,title:'Documents',sub:'PDF · Office · scans · images'},{x:345,title:'Pages',sub:'~15 pages per document'},{x:650,title:'Chunks',sub:'~400 tokens · tables and captions kept whole'}];
+ const heads=cols.map(c=>{ txt(svg,c.x,44,c.title,'t-md muted'); const b=txt(svg,c.x,82,'0','t-big'); txt(svg,c.x,102,c.sub,'t-xs muted'); return b; });
+ const kinds=[]; for(let i=0;i<80;i++) kinds.push(i<56?'pdf':i<72?'scan':'img');
+ for(let i=kinds.length-1;i>0;i--){ const j=Math.floor(R()*(i+1)); const k=kinds[i]; kinds[i]=kinds[j]; kinds[j]=k; }
+ const docs=kinds.map((k,i)=>{ const w=g(svg); docIcon(w,0,0,k,1); tr(w,40+(i%10)*27,120+Math.floor(i/10)*30); op(w,0); return w; });
+ const leg=g(svg); [['pdf','Text-native PDF / Office · ~70%'],['scan','Scanned PDF · ~20%'],['img','Standalone image · ~10%']].forEach((L,i)=>{ docIcon(leg,40,372+i*22,L[0],0.75); txt(leg,62,385+i*22,L[1],'t-xs muted'); }); op(leg,0);
+ const pages=[]; for(let i=0;i<48;i++){ const r=rect(svg,360+(i%2)*3,330-i*4,120,3,1,'tile-grey'); op(r,0); pages.push(r); }
+ const pg=g(svg); rect(pg,500,140,110,160,4,'box'); for(let i=0;i<8;i++) rect(pg,512,158+i*17,i%3===2?55:86,4,2,'tile-grey'); txt(pg,555,318,'~400 tokens / page','t-xs muted','middle'); op(pg,0);
+ const tiles=[]; for(let i=0;i<240;i++){ const k=R(); const r=rect(svg,650+(i%20)*13,130+Math.floor(i/20)*13,10,10,2,k<0.82?'tile-blue':k<0.93?'tile-amber':'tile-teal'); op(r,0); tiles.push(r); }
+ const tl=g(svg); [['tile-blue','text'],['tile-amber','table'],['tile-teal','figure caption']].forEach((L,i)=>{ rect(tl,650+i*90,300,10,10,2,L[0]); txt(tl,665+i*90,309,L[1],'t-xs muted'); }); op(tl,0);
+ const a1=g(svg); arrow(a1,315,230,340,230); txt(a1,327,218,'× 15','t-xs muted','middle'); op(a1,0);
+ const a2=g(svg); arrow(a2,620,230,645,230); txt(a2,632,218,'chunk','t-xs muted','middle'); op(a2,0);
+ const call=g(svg); rect(call,40,445,880,88,10,'box-amber-soft'); txt(call,56,468,'Where the money goes','t-md bold');
+ txt(call,56,493,'Embedding ~700M tokens','t-sm'); rect(call,330,483,14,12,2,'tile-green'); txt(call,352,493,'≈ $15–100','t-sm');
+ txt(call,56,518,'Parsing ~1.5M pages (layout, OCR, VLM)','t-sm'); rect(call,330,508,250,12,2,'tile-amber'); txt(call,592,518,'≈ $1,000–6,000 and most of the engineering time','t-sm');
+ op(call,0);
+ return {render(t){
+  heads[0].textContent=fmt(Math.round(100000*seg(t,0,0.28,easeOut)));
+  docs.forEach((w,i)=>op(w,seg(t,i/80*0.26,i/80*0.26+0.03)));
+  op(leg,seg(t,0.2,0.3)); op(a1,seg(t,0.3,0.36));
+  heads[1].textContent=t<0.32?'0':'~'+(1.5*seg(t,0.32,0.56,easeOut)).toFixed(1)+' M';
+  pages.forEach((r,i)=>op(r,seg(t,0.32+i/48*0.22,0.34+i/48*0.22)));
+  op(pg,seg(t,0.4,0.5)); op(a2,seg(t,0.58,0.64));
+  heads[2].textContent=t<0.6?'0':'~'+(2*seg(t,0.6,0.84,easeOut)).toFixed(1)+' M';
+  tiles.forEach((r,i)=>op(r,seg(t,0.6+i/240*0.22,0.62+i/240*0.22)));
+  op(tl,seg(t,0.74,0.8)); op(call,seg(t,0.88,0.96));
+ }};
+}
+});
+
+/* ---------- 2. Manifest and dedupe ---------- */
+STEPS.push({
+id:'manifest',nav:'Manifest and dedupe',title:'2. Ingestion starts with a manifest',
+summary:'Catalog every document before parsing: stable id, content hash, ACLs, versions. Then collapse duplicates.',
+duration:11000,
+phases:[
+{at:0,text:'Every document gets a catalog row <b>before any parsing</b>: a stable doc_id, a SHA-256 content hash, source URI, tenant, ACL groups and timestamps.'},
+{at:.55,text:'<b>Exact duplicates</b> (the same hash in three SharePoint folders) collapse to one canonical row. Skip this and the top-10 will contain five copies of one document.'},
+{at:.72,text:'<b>Near-duplicates</b> (v3 vs v4 of a spec) are found with MinHash over normalized text and clustered; the newest or most authoritative copy becomes canonical.'},
+{at:.85,text:'The manifest buys <b>idempotency</b> (unchanged hash &rarr; skip), <b>incremental</b> reprocessing, <b>lineage</b> by parser version, and clean <b>deletes</b> via tombstones.'}
+],
+setup(svg){
+ txt(svg,40,44,'Sources','t-md muted');
+ const srcY=[120,240,360], srcN=['SharePoint','S3 bucket','Wiki / tickets'];
+ srcY.forEach((y,i)=>{ rect(svg,40,y-22,140,44,8,'box-grey'); txt(svg,110,y+5,srcN[i],'t-sm','middle'); });
+ txt(svg,330,44,'Document catalog (Postgres)','t-md muted');
+ rect(svg,330,58,400,22,4,'box-dark');
+ [['doc_id',340],['sha256',420],['tenant',505],['acl',570],['status',645]].forEach(c=>txt(svg,c[1],73,c[0],'t-xs t-mono white'));
+ const HASH={h0:['a1f3…','chip-red'],h1:['7be0…','chip'],h2:['9c1e…','chip-amber'],h2b:['9c1f…','chip-amber'],h3:['44d2…','chip'],h4:['e07a…','chip'],h5:['b3c9…','chip'],h6:['5d10…','chip'],h7:['c8e4…','chip'],h8:['12ab…','chip']};
+ const docs=[{s:0,h:'h0'},{s:1,h:'h1'},{s:2,h:'h2'},{s:0,h:'h3'},{s:1,h:'h0'},{s:2,h:'h4'},{s:0,h:'h5'},{s:1,h:'h2b'},{s:2,h:'h6'},{s:0,h:'h0'},{s:1,h:'h7'},{s:2,h:'h8'}];
+ const removed=[4,9], RH=27, Y0=88;
+ const rows=docs.map((d,i)=>{ const rg=g(svg); rect(rg,330,0,400,RH-3,4,i%2?'box-grey':'box');
+  txt(rg,340,17,'doc_'+(0x8f3a+i*7).toString(16),'t-xs t-mono'); chip(rg,418,3,HASH[d.h][0],HASH[d.h][1],10);
+  txt(rg,505,17,'acme','t-xs t-mono'); txt(rg,570,17,'grp:eng','t-xs t-mono'); const st=txt(rg,645,17,'queued','t-xs t-mono muted'); op(rg,0);
+  const kept=removed.indexOf(i)<0, newIdx=i-removed.filter(r=>r<i).length;
+  return {rg,st,y0:Y0+i*RH,y1:kept?Y0+newIdx*RH:Y0,kept}; });
+ const fly=docs.map((d,i)=>{ const w=g(svg); docIcon(w,0,0,i%5===1?'scan':i%7===3?'img':'pdf',0.9); op(w,0); return w; });
+ const near=g(svg); path(near,'M322 '+(Y0+2*RH+12)+' H312 V'+(Y0+6*RH+12)+' H322','wire wire-dash wire-amber'); chip(near,224,Y0+4*RH,'MinHash 0.96','chip-amber',10); op(near,0);
+ const note1=txt(svg,330,448,'Same SHA-256 in three folders → one canonical row (×3).','t-xs'); op(note1,0);
+ const note2=lines(svg,330,470,['Near-duplicates 9c1e… vs 9c1f… cluster by MinHash over normalized text;','the newest copy is canonical, the other is marked superseded.'],'t-xs',14); op(note2,0);
+ txt(svg,750,44,'Why a manifest?','t-md muted');
+ const bullets=[['Idempotent','unchanged hash → skip'],['Incremental','changed hash → redo one doc'],['Lineage','parser / chunker versions'],['Deletes','tombstone → every index']].map((b,i)=>{ const gg=g(svg); rect(gg,750,60+i*70,170,58,8,'box-blue'); txt(gg,760,81+i*70,b[0],'t-sm bold'); txt(gg,760,99+i*70,b[1],'t-xs muted'); op(gg,0); return gg; });
+ return {render(t){
+  docs.forEach((d,i)=>{ const a=0.02+i*0.033, b=a+0.09, p=seg(t,a,b); tr(fly[i],lerp(185,305,p),lerp(srcY[d.s]-12,rows[i].y0+1,p)); op(fly[i],t<a?0:1-seg(t,b,b+0.03));
+   const r=rows[i]; let o=seg(t,b-0.01,b+0.03), y=r.y0;
+   if(t>0.55){ const q=seg(t,0.55,0.68); y=lerp(r.y0,r.y1,q); if(!r.kept) o*=1-q; }
+   if(i===7&&t>0.72) o*=1-0.5*seg(t,0.72,0.8);
+   tr(r.rg,0,y); op(r.rg,o); });
+  rows[0].st.textContent=t>0.62?'canonical ×3':'queued'; rows[0].st.setAttribute('class',t>0.62?'t-xs t-mono red bold':'t-xs t-mono muted');
+  rows[7].st.textContent=t>0.78?'superseded':'queued';
+  op(near,seg(t,0.72,0.8)); op(note1,seg(t,0.6,0.68)); op(note2,seg(t,0.76,0.84));
+  bullets.forEach((b,i)=>op(b,seg(t,0.85+i*0.03,0.9+i*0.03)));
+ }};
+}
+});
+
+/* ---------- 3. Tiered parsing ---------- */
+STEPS.push({
+id:'parsing',nav:'Tiered parsing',title:'3. Tiered parsing into one canonical format',
+summary:'Route each document to the cheapest tier that can read it. Every tier emits the same intermediate representation.',
+duration:13000,
+phases:[
+{at:0,text:'A cheap probe routes each document, often each page: <b>does it have extractable text? Is it just a big image? Are there figures?</b>'},
+{at:.22,text:'<b>Tier 0</b>: text-native files get text extraction plus a layout model that recovers reading order, headings and tables. Cheap and fast, but watch for repeated headers, hyphenation and two-column pages.'},
+{at:.45,text:'<b>Tier 1</b>: scanned pages go to OCR; keep the confidence scores. <b>Tier 2</b>: figures, diagrams and screenshots go to a vision-language model that writes a structured caption.'},
+{at:.78,text:'Every tier emits the same <b>canonical IR</b>: an ordered list of blocks with type, text, page and bounding box. Every index downstream is rebuilt from this, never from the PDF.'}
+],
+setup(svg){
+ const laneY=[130,270,410];
+ const lanes=[['Tier 0 · Layout-aware extraction','PyMuPDF + Docling · reading order, tables','box-blue'],['Tier 1 · OCR','Textract / PaddleOCR · keep confidences','box-amber'],['Tier 2 · Vision-language captions','describe · transcribe text · numbers','box-teal']];
+ txt(svg,40,44,'Queue','t-md muted');
+ const laneEls=lanes.map((L,i)=>{ const gg=g(svg); const r=rect(gg,330,laneY[i]-34,240,68,8,L[2]); txt(gg,345,laneY[i]-10,L[0],'t-sm bold'); txt(gg,345,laneY[i]+10,L[1],'t-xs muted'); return r; });
+ const costs=['CPU only · 1–5 pages/s with a layout model','≈ $1.50/1k pages plain · $4–15/1k with layout','≈ $0.001–0.004 per image with a small VLM'].map((c,i)=>{ const e=txt(svg,330,laneY[i]+50,c,'t-xs muted'); op(e,0); return e; });
+ const rt=g(svg); path(rt,'M215 225 L260 270 L215 315 L170 270 Z','box'); txt(rt,215,266,'probe','t-xs bold','middle'); txt(rt,215,280,'& route','t-xs bold','middle');
+ lines(svg,150,338,['extractable text → tier 0','mostly image → tier 1','figures on page → tier 2'],'t-xs muted',13);
+ laneY.forEach(y=>curve(svg,262,270,328,y,'wire','arr'));
+ laneY.forEach(y=>curve(svg,572,y,638,y,'wire','arr'));
+ txt(svg,650,44,'Canonical document IR','t-md muted'); rect(svg,640,58,280,440,10,'box');
+ txt(svg,655,78,'blocks: type · text · page · bbox','t-xs muted');
+ const BL=[['H1','Payments Service Runbook','p.1','chip-blue'],['P','OCR 0.93 · Retention: seven years…','p.2','chip-amber'],['FIG','Checkout → Payments → Ledger','p.3','chip-teal'],['TABLE','4 × 6 · Region · RTO · RPO','p.15','chip-amber'],['P','To fail over the payments service…','p.14','chip'],['FIG','P1 incidents per month, peak 9','p.7','chip-teal'],['P','OCR 0.71 → review queue','p.5','chip-amber'],['H2','Regional failover procedure','p.14','chip-blue'],['LIST','Drain traffic · Promote replica…','p.14','chip']];
+ const kinds=['pdf','scan','img','pdf','pdf','img','scan','pdf','pdf'], laneOf={pdf:0,scan:1,img:2};
+ const blocks=BL.map((b,i)=>{ const gg=g(svg), y=98+i*44; chip(gg,652,y,b[0],b[3],10); txt(gg,704,y+14,b[1],'t-xs'); txt(gg,908,y+14,b[2],'t-xs muted','end'); op(gg,0); return gg; });
+ const docs=kinds.map((k,i)=>{ const w=g(svg); docIcon(w,0,0,k,1); return {w,lane:laneOf[k],i}; });
+ return {render(t){
+  laneEls.forEach((r,i)=>r.setAttribute('class',lanes[i][2]));
+  docs.forEach(d=>{ const s=0.03+d.i*0.085, ly=laneY[d.lane], irY=98+d.i*44+8;
+   const P=[{x:48+(d.i%3)*28,y:70+Math.floor(d.i/3)*44},{x:206,y:228},{x:340,y:ly-60},{x:540,y:ly-60},{x:655,y:irY}];
+   const T=[s,s+0.05,s+0.10,s+0.17,s+0.23];
+   let x=P[0].x, y=P[0].y;
+   if(t>=T[4]){ x=P[4].x; y=P[4].y; } else for(let k=0;k<4;k++){ if(t>=T[k]&&t<T[k+1]){ const p=seg(t,T[k],T[k+1],k===2?linear:easeIO); x=lerp(P[k].x,P[k+1].x,p); y=lerp(P[k].y,P[k+1].y,p); } }
+   tr(d.w,x,y); op(d.w,1-seg(t,T[4],T[4]+0.03));
+   if(t>=T[2]&&t<T[3]) laneEls[d.lane].setAttribute('class',lanes[d.lane][2]+' hl');
+   op(blocks[d.i],seg(t,T[4]-0.01,T[4]+0.03)); });
+  costs.forEach((c,i)=>op(c,seg(t,[0.22,0.45,0.5][i],[0.3,0.53,0.58][i])));
+ }};
+}
+});
+
+/* ---------- 4. Structure-aware chunking ---------- */
+STEPS.push({
+id:'chunking',nav:'Structure-aware chunking',title:'4. Chunking that respects document structure',
+summary:'Split on headings, keep tables whole, prepend a breadcrumb, and link small chunks to a bigger parent.',
+duration:12000,
+phases:[
+{at:0,text:'Detect the <b>heading hierarchy</b> first. Structure-aware splitting beats fixed-size windows on heterogeneous corpora.'},
+{at:.2,text:'Split on headings, then to <b>~300–500 tokens</b> with 10–15% overlap. <b>Never split a table</b>; keep list items with their intro sentence.'},
+{at:.5,text:'Prepend a <b>breadcrumb</b> to every chunk: Document › Section › Subsection (page). Nearly free, and it helps both the embedding model and BM25.'},
+{at:.7,text:'<b>Parent-child</b>: index small chunks for precise matching but store a parent_id. Retrieve on children, hand the LLM the parent.'},
+{at:.9,text:'Optional: <b>contextual retrieval</b> adds 1–2 LLM-written sentences situating each chunk. Anthropic reported ~49% fewer retrieval failures; validate it on your own eval set.'}
+],
+setup(svg){
+ txt(svg,50,44,'Parsed document (IR)','t-md muted'); rect(svg,50,58,280,452,6,'box');
+ const B=[{k:'h1',y:82,label:'Payments Service Runbook',w:200},{k:'h2',y:112,label:'Failover',w:70},{k:'p',y:128,n:4},{k:'p',y:184,n:3},{k:'h2',y:238,label:'Regional failover procedure',w:170},{k:'p',y:254,n:5},{k:'table',y:330},{k:'p',y:398,n:3}];
+ const heads=[];
+ B.forEach(b=>{ if(b.k==='h1'||b.k==='h2'){ const hl=rect(svg,60,b.y-3,b.w+14,b.k==='h1'?20:16,3,'fill-blue'); op(hl,0); heads.push(hl); txt(svg,66,b.y+(b.k==='h1'?12:10),b.label,(b.k==='h1'?'t-md':'t-sm')+' bold'); }
+  else if(b.k==='p'){ for(let i=0;i<b.n;i++) rect(svg,66,b.y+i*12,i===b.n-1?150:250,5,2,'tile-grey'); }
+  else { for(let r=0;r<3;r++) for(let c=0;c<3;c++) rect(svg,66+c*84,b.y+r*18,80,15,2,r===0?'box-amber':'box-grey'); } });
+ const splits=[232,326,392].map(y=>{ const l=line(svg,54,y,326,y,'wire wire-dash wire-amber'); op(l,0); return l; });
+ const CH=[{fy:78,bc:['Payments Service Runbook ›','Failover (p. 13)'],n:3},{fy:236,bc:['Payments Service Runbook › Failover ›','Regional failover procedure (p. 14)'],n:3},{fy:328,bc:['… › Regional failover procedure ›','Table: Region · RTO · RPO (p. 15)'],table:true},{fy:396,bc:['… › Regional failover procedure','(p. 15)'],n:2}];
+ const cards=CH.map((c,i)=>{ const gg=g(svg); rect(gg,0,0,280,92,8,c.table?'box-amber':'box'); const b1=txt(gg,10,17,'','t-xs t-mono blue'), b2=txt(gg,10,31,'','t-xs t-mono blue');
+  if(c.table){ for(let r=0;r<2;r++) for(let k=0;k<3;k++) rect(gg,10+k*88,40+r*16,84,13,2,r===0?'box-amber':'box-grey'); txt(gg,10,84,'table kept whole · header row repeated if it must split','t-xs muted'); }
+  else { for(let k=0;k<c.n;k++) rect(gg,10,44+k*12,k===c.n-1?160:255,5,2,'tile-grey'); txt(gg,270,84,'child · ~400 tokens','t-xs muted','end'); }
+  op(gg,0); return {gg,b1,b2,c,to:{x:380,y:70+i*110}}; });
+ const par=g(svg); rect(par,700,150,220,250,10,'box-blue'); txt(par,712,172,'Parent chunk','t-sm bold'); txt(par,712,190,'section “Failover” · ~1,500 tokens','t-xs muted'); for(let k=0;k<10;k++) rect(par,712,205+k*14,k%4===3?120:195,5,2,'tile-grey'); txt(par,712,385,'children → parent_id','t-xs t-mono blue'); op(par,0);
+ const links=cards.map(cd=>{ const p=curve(svg,660,cd.to.y+46,700,275,'wire wire-active','arr-blue'); op(p,0); return p; });
+ const note=chip(svg,380,512,'Optional: prepend 1–2 LLM-written context sentences per chunk (~$1–3k for 2M chunks)','chip-violet',10); op(note,0);
+ return {render(t){
+  heads.forEach((h,i)=>op(h,0.3*seg(t,0.02+i*0.05,0.08+i*0.05)));
+  splits.forEach((l,i)=>op(l,seg(t,0.2+i*0.03,0.26+i*0.03)));
+  cards.forEach((cd,i)=>{ const a=0.3+i*0.05, p=seg(t,a,a+0.12); tr(cd.gg,lerp(50,cd.to.x,p),lerp(cd.c.fy,cd.to.y,p),lerp(0.7,1,p)); op(cd.gg,seg(t,a,a+0.04));
+   const q=seg(t,0.52+i*0.04,0.66+i*0.04,linear); typeText(cd.b1,cd.c.bc[0],q*2); typeText(cd.b2,cd.c.bc[1],q*2-1); });
+  op(par,seg(t,0.7,0.78)); links.forEach((l,i)=>op(l,seg(t,0.76+i*0.02,0.82+i*0.02)));
+  op(note,seg(t,0.9,0.96));
+ }};
+}
+});
+
+/* ---------- 5. Enrichment and embedding ---------- */
+STEPS.push({
+id:'enrich',nav:'Enrichment and embedding',title:'5. Enrichment, then embedding',
+summary:'Attach the metadata you will filter on, then turn every chunk into a vector. The vectors are the cheap part.',
+duration:11000,
+phases:[
+{at:0,text:'<b>System metadata is free</b>: tenant, collection, ACL groups, dates, language, pipeline versions. Denormalize it onto every chunk row.'},
+{at:.22,text:'<b>Extracted metadata</b> takes one LLM call per document, not per chunk: document type, a real title, effective date, owning team, a two-sentence summary. ~100k calls, tens of dollars.'},
+{at:.5,text:'Each chunk, breadcrumb included, becomes a <b>vector</b>. Similar content lands close together. 700M tokens through an embedding API costs tens of dollars.'},
+{at:.86,text:'Store the <b>model name and version</b> with every vector. Quantize to int8 at index build for 4&times; less memory at ~1% recall loss.'}
+],
+setup(svg){
+ txt(svg,40,44,'Chunks','t-md muted');
+ const TYPES=['runbook','runbook','policy','incident','runbook','policy'], TC={runbook:['chip-blue','#3b82f6'],policy:['chip-violet','#8b5cf6'],incident:['chip-amber','#f59e0b']};
+ const BC=['Payments Runbook › Failover','Payments Runbook › Rollback','Retention Policy v4 › Scope','INC-4412 › Root cause','Ledger Runbook › Scaling','Access Policy › SSO'];
+ const cards=TYPES.map((ty,i)=>{ const y=58+i*70; rect(svg,40,y,270,62,8,'box'); txt(svg,50,y+16,BC[i],'t-xs t-mono blue'); rect(svg,50,y+24,200,5,2,'tile-grey'); rect(svg,50,y+33,150,5,2,'tile-grey'); return {y,ty}; });
+ const s1=g(svg); rect(s1,340,58,230,92,8,'box-grey'); txt(s1,352,78,'System metadata (free)','t-sm bold'); lines(s1,352,96,['tenant · collection · ACL groups','created / modified · language','parser / chunker / embedding version'],'t-xs muted',14);
+ const s2=g(svg); rect(s2,340,170,230,92,8,'box-violet'); txt(s2,352,190,'Extracted metadata','t-sm bold'); lines(s2,352,208,['one LLM call per document · closed schema','doc_type · real title · effective date','owning team · entities · summary'],'t-xs muted',14); op(s2,0);
+ const tags=[]; cards.forEach((c,i)=>{ let x=50; [['tenant: acme','chip',1],['doc_type: '+c.ty,TC[c.ty][0],2],['2025-11','chip',1]].forEach((tg,k)=>{ const ch=chip(svg,0,0,tg[0],tg[1],9); op(ch,0); tags.push({ch,from:{x:345,y:tg[2]===1?100:212},to:{x:x,y:c.y+38},t0:(tg[2]===1?0.04:0.24)+i*0.035+k*0.01}); x+=ch._w+6; }); });
+ const sp=g(svg); rect(sp,600,58,320,412,10,'box'); txt(sp,600,44,'Embedding space (1024-d, drawn in 2-D)','t-md muted'); for(let i=1;i<4;i++) line(sp,600+i*80,58,600+i*80,470,'wire wire-faint'); for(let i=1;i<5;i++) line(sp,600,58+i*82,920,58+i*82,'wire wire-faint'); op(sp,0);
+ const centers={runbook:{x:690,y:170},policy:{x:840,y:290},incident:{x:700,y:380}}, R=rng(21);
+ const bg=[]; Object.keys(centers).forEach(ty=>{ for(let k=0;k<18;k++){ const c=centers[ty]; const d=circ(svg,c.x+(R()-0.5)*110,c.y+(R()-0.5)*110,3.2,'',{fill:TC[ty][1],'fill-opacity':0.55}); op(d,0); bg.push(d); } });
+ const dots=cards.map(c=>{ const cc=centers[c.ty]; const d=circ(svg,0,0,5.5,'',{fill:TC[c.ty][1],stroke:'#0f172a','stroke-width':1}); op(d,0); return {d,from:{x:175,y:c.y+31},to:{x:cc.x+(R()-0.5)*80,y:cc.y+(R()-0.5)*80}}; });
+ const legend=g(svg); Object.keys(centers).forEach((ty,i)=>{ circ(legend,615+i*100,455,4,'',{fill:TC[ty][1]}); txt(legend,624+i*100,459,ty,'t-xs muted'); }); op(legend,0);
+ const meta=g(svg); const m1=chip(meta,600,488,'embedding_model: bge-m3@2025-01','chip-dark',10); chip(meta,600+m1._w+10,488,'int8 → 4× less memory','chip-green',10); op(meta,0);
+ return {render(t){
+  op(s2,seg(t,0.2,0.26));
+  tags.forEach(tg=>{ const p=seg(t,tg.t0,tg.t0+0.08); tr(tg.ch,lerp(tg.from.x,tg.to.x,p),lerp(tg.from.y,tg.to.y,p)); op(tg.ch,seg(t,tg.t0,tg.t0+0.03)); });
+  op(sp,seg(t,0.46,0.52)); bg.forEach((d,i)=>op(d,seg(t,0.5+i/54*0.25,0.53+i/54*0.25)));
+  dots.forEach((d,i)=>{ const a=0.55+i*0.04, p=seg(t,a,a+0.12); d.d.setAttribute('cx',lerp(d.from.x,d.to.x,p).toFixed(1)); d.d.setAttribute('cy',lerp(d.from.y,d.to.y,p).toFixed(1)); op(d.d,seg(t,a,a+0.03)); });
+  op(legend,seg(t,0.78,0.84)); op(meta,seg(t,0.86,0.92));
+ }};
+}
+});
+
+/* ---------- 6. Storage and indexes ---------- */
+STEPS.push({
+id:'storage',nav:'Storage and indexes',title:'6. Storage and indexes: derived, rebuildable views',
+summary:'The IR is the source of truth. Every index is a view you can rebuild from it.',
+duration:11000,
+phases:[
+{at:0,text:'Originals and the parsed IR land in <b>object storage</b>; the <b>catalog</b> in Postgres tracks documents, chunks, versions and ingestion runs.'},
+{at:.3,text:'Chunk text goes into a <b>BM25 inverted index</b>, vectors into an <b>HNSW index</b>, entities into an optional <b>graph</b>. All three are derived from the IR.'},
+{at:.76,text:'At 2M chunks the whole retrieval tier fits on <b>two or three modest nodes</b>. This is not a big-data problem; it is a correctness problem.'},
+{at:.88,text:'Prefer <b>one engine</b> that does BM25 and vectors: identical filters on both retrievers, and no chunk present in one index but missing from the other.'}
+],
+setup(svg){
+ const src=g(svg); rect(src,40,235,150,70,8,'box-blue'); txt(src,115,262,'Chunks + IR','t-sm bold','middle'); txt(src,115,280,'from the pipeline','t-xs muted','middle');
+ const D=[['Object store','originals · IR JSON · figure crops','box-grey'],['Catalog (Postgres)','documents · chunks · versions · runs','box-grey'],['BM25 inverted index','term → postings · per-language analyzers','box-amber'],['HNSW vector index','1024-d · int8 · filtered traversal','box-teal'],['Knowledge graph (optional)','entities · typed edges · provenance','box-violet']];
+ const ys=[45,140,235,330,425];
+ D.forEach((d,i)=>{ curve(svg,190,270,398,ys[i]+32,'wire'); const gg=g(svg); rect(gg,400,ys[i],250,64,8,d[2],i===4?{'stroke-dasharray':'5 4'}:{}); txt(gg,412,ys[i]+25,d[0],'t-sm bold'); txt(gg,412,ys[i]+45,d[1],'t-xs muted'); });
+ const det=[];
+ { const gg=g(svg); ['pdf','scan','img'].forEach((k,i)=>docIcon(gg,680+i*26,ys[0]+12,k,0.9)); txt(gg,770,ys[0]+40,'+ ir.json per document','t-xs t-mono muted'); det.push(gg); }
+ { const gg=g(svg); for(let r=0;r<3;r++) rect(gg,680,ys[1]+10+r*16,230,12,2,r?'box-grey':'box-dark'); txt(gg,686,ys[1]+19,'doc_id · hash · parser_v · status','t-xs t-mono white'); det.push(gg); }
+ { const gg=g(svg); txt(gg,680,ys[2]+22,'err-4092 → c17 c88 c203','t-xs t-mono'); txt(gg,680,ys[2]+38,'failover → c17 c203 c355 c410 …','t-xs t-mono'); txt(gg,680,ys[2]+54,'payments → c2 c9 c17 c88 … (41k)','t-xs t-mono muted'); det.push(gg); }
+ { const gg=g(svg), R=rng(5), pts=[]; for(let k=0;k<14;k++) pts.push({x:680+R()*230,y:ys[3]+8+R()*50}); pts.forEach((p,i)=>pts.slice(i+1).sort((a,b)=>dist(p,a)-dist(p,b)).slice(0,2).forEach(q=>line(gg,p.x,p.y,q.x,q.y,'wire wire-faint'))); pts.forEach(p=>circ(gg,p.x,p.y,3,'tile-teal')); det.push(gg); }
+ { const gg=g(svg); const N=[[700,ys[4]+14],[760,ys[4]+42],[830,ys[4]+14],[895,ys[4]+42]]; for(let k=0;k<3;k++) line(gg,N[k][0],N[k][1],N[k+1][0],N[k+1][1],'wire'); N.forEach(n=>circ(gg,n[0],n[1],6,'tile-violet')); txt(gg,680,ys[4]+62,'edges: DEPENDS_ON · OWNED_BY · CAUSED_BY','t-xs muted'); det.push(gg); }
+ det.forEach(d=>op(d,0));
+ const pk=[]; for(let i=0;i<5;i++) for(let k=0;k<3;k++){ const r=rect(svg,0,0,10,10,2,['tile-blue','tile-blue','tile-amber','tile-teal','tile-violet'][i]); op(r,0); pk.push({r,i,t0:0.04+i*0.11+k*0.03}); }
+ const foot=g(svg); rect(foot,40,500,880,32,8,'box-grey'); txt(foot,480,520,'HNSW at 2M × 1024-d ≈ 9 GB float32 · 2.5 GB int8 · < 1 GB binary with rescoring — BM25 index a few GB on disk — two or three nodes','t-xs','middle'); op(foot,0);
+ const one=g(svg); path(one,'M656 '+(ys[2]+4)+' H666 V'+(ys[3]+60)+' H656','wire wire-active'); chip(one,530,ys[2]+70,'one engine for both','chip-blue',10); op(one,0);
+ return {render(t){
+  pk.forEach(p=>{ const q=seg(t,p.t0,p.t0+0.12,linear), x0=190,y0=270,x1=398,y1=ys[p.i]+32,mx=(x0+x1)/2, u=1-q;
+   const bx=u*u*u*x0+3*u*u*q*mx+3*u*q*q*mx+q*q*q*x1, by=u*u*u*y0+3*u*u*q*y0+3*u*q*q*y1+q*q*q*y1; tr(p.r,bx-5,by-5); op(p.r,(t>=p.t0&&q<1)?1:0); });
+  det.forEach((d,i)=>op(d,seg(t,0.16+i*0.11,0.22+i*0.11)));
+  op(foot,seg(t,0.76,0.84)); op(one,seg(t,0.88,0.94));
+ }};
+}
+});
+
+/* ---------- 7. Metadata filtering ---------- */
+STEPS.push({
+id:'filter',nav:'Metadata filtering',title:'7. Metadata filtering: security, scope and boosts',
+summary:'ACL filters are mandatory and come from the session. Scoping filters are soft. How the engine applies them decides whether you get results at all.',
+duration:13000,
+phases:[
+{at:0,text:'<b>Security filters</b> (tenant, ACL) come from the authenticated session and are ANDed into every retriever. Scoping filters may come from an LLM, constrained to a closed schema and treated as soft.'},
+{at:.15,text:'<b>Post-filtering</b>: fetch the k nearest, then drop the ones that fail the filter. With a selective filter you get almost nothing back.'},
+{at:.5,text:'<b>Pre-filtering or filtered HNSW traversal</b>: apply the filter during the search so k results come back. Test recall with your most selective real filter: one tenant, 200 documents.'},
+{at:.85,text:'Very selective filters strand graph traversal, so engines <b>fall back to exact search</b> below a threshold. For hard isolation, <b>partition per tenant</b> instead of filtering.'}
+],
+setup(svg){
+ txt(svg,40,44,'Query and filters','t-md muted');
+ rect(svg,40,58,310,60,8,'box'); txt(svg,52,80,'“Q3 2025 security review: SSO findings”','t-sm'); txt(svg,52,100,'→ text: security review SSO findings','t-xs muted');
+ const F=[['🔒 tenant_id = acme','chip-dark','from auth context'],['🔒 acl ∩ {grp:sec, grp:eng}','chip-dark','from auth context'],['doc_type = security_review','chip-blue','LLM-extracted · soft'],['modified_at ≥ 2025-07-01','chip-blue','LLM-extracted · soft']];
+ const fch=F.map((f,i)=>{ const gg=g(svg); chip(gg,40,135+i*32,f[0],f[1],10); txt(gg,350,149+i*32,f[2],'t-xs muted','end'); op(gg,0); return gg; });
+ const warn=lines(svg,40,282,['Security filters are injected in code and ANDed with','everything. The model never generates them.'],'t-xs bold',14); op(warn,0);
+ const notes=g(svg); rect(notes,40,330,310,120,8,'box-amber-soft'); txt(notes,52,352,'Engine behaviour to test','t-sm bold'); lines(notes,52,372,['• Filter on keyword / date / numeric fields only','• A selective filter strands HNSW traversal →','  engine falls back to exact search; know the threshold','• Hard isolation → partition per tenant, don’t filter'],'t-xs',15); op(notes,0);
+ const SX=380,SY=58,SW=540,SH=412; rect(svg,SX,SY,SW,SH,10,'box'); const mode=txt(svg,SX+12,SY+22,'','t-sm bold'); const count=txt(svg,SX+SW-12,SY+22,'','t-sm bold','end');
+ const q={x:650,y:270}, R=rng(11), pts=[];
+ for(let i=0;i<70;i++) pts.push({x:SX+20+R()*(SW-40),y:SY+45+R()*(SH-75),m:false});
+ for(let i=0;i<10;i++){ const a=R()*Math.PI*2, r=25+R()*45; pts.push({x:q.x+r*Math.cos(a),y:q.y+r*Math.sin(a),m:false}); }
+ { const a=R()*Math.PI*2; pts.push({x:q.x+50*Math.cos(a),y:q.y+50*Math.sin(a),m:true}); }
+ for(let i=0;i<11;i++){ let p; do{ p={x:SX+20+R()*(SW-40),y:SY+45+R()*(SH-75),m:true}; }while(dist(p,q)<95); pts.push(p); }
+ pts.forEach(p=>p.d=dist(p,q));
+ const all=pts.slice().sort((a,b)=>a.d-b.d), r10=all[9].d, top10=all.slice(0,10);
+ const mts=pts.filter(p=>p.m).sort((a,b)=>a.d-b.d), r10m=mts[9].d, top10m=mts.slice(0,10);
+ const dots=pts.map(p=>{ const c=circ(svg,p.x,p.y,4,'',{fill:p.m?'#2563eb':'#cbd5e1',stroke:p.m?'#1e40af':'#94a3b8','stroke-width':1}); op(c,0); return c; });
+ const rings=pts.map(p=>{ const c=circ(svg,p.x,p.y,8,'ring'); op(c,0); return c; });
+ const xs=pts.map(p=>{ const gg=g(svg); line(gg,p.x-5,p.y-5,p.x+5,p.y+5,'wire wire-red'); line(gg,p.x-5,p.y+5,p.x+5,p.y-5,'wire wire-red'); op(gg,0); return gg; });
+ const circle=circ(svg,q.x,q.y,0,'ring ring-amber',{'stroke-dasharray':'6 4'}); op(circle,0);
+ const qs=star(svg,q.x,q.y,9); op(qs,0);
+ const legend=g(svg); circ(legend,SX+16,SY+SH-14,4,'',{fill:'#2563eb'}); txt(legend,SX+26,SY+SH-10,'passes all filters (12 of 92)','t-xs muted'); circ(legend,SX+230,SY+SH-14,4,'',{fill:'#cbd5e1'}); txt(legend,SX+240,SY+SH-10,'fails a filter','t-xs muted');
+ return {render(t){
+  fch.forEach((f,i)=>op(f,seg(t,0.02+i*0.025,0.06+i*0.025))); op(warn,seg(t,0.1,0.15));
+  dots.forEach((d,i)=>{ let o=seg(t,0.02+i/92*0.08,0.05+i/92*0.08); if(!pts[i].m&&t>0.5) o*=1-0.85*seg(t,0.5,0.58); op(d,o); });
+  op(qs,seg(t,0.1,0.14));
+  let r=0, co=0, modeS='', cnt='';
+  if(t>=0.15&&t<0.5){ modeS='Post-filter: search first, filter after'; r=r10*seg(t,0.15,0.3); co=1-seg(t,0.47,0.5); }
+  else if(t>=0.5){ modeS='Pre-filter / filtered traversal: filter during the search'; r=r10m*seg(t,0.58,0.75); co=seg(t,0.58,0.6); }
+  circle.setAttribute('r',r.toFixed(1)); op(circle,co); mode.textContent=modeS;
+  rings.forEach((rg,i)=>{ const p=pts[i]; let o=0;
+   if(t>=0.3&&t<0.5&&top10.indexOf(p)>-1){ o=seg(t,0.3,0.34); if(!p.m) o*=1-seg(t,0.36,0.44); o*=1-seg(t,0.47,0.5); rg.setAttribute('class','ring'); }
+   if(t>=0.75&&top10m.indexOf(p)>-1){ o=seg(t,0.75,0.8); rg.setAttribute('class','ring ring-green'); }
+   op(rg,o); });
+  xs.forEach((x,i)=>{ const p=pts[i]; let o=0; if(t>=0.34&&t<0.5&&!p.m&&top10.indexOf(p)>-1) o=seg(t,0.34,0.4)*(1-seg(t,0.47,0.5)); op(x,o); });
+  if(t>=0.36&&t<0.5){ cnt=top10.filter(p=>p.m).length+' of 10 survive the filter ✗'; count.setAttribute('class','t-sm bold red'); }
+  else if(t>=0.76){ cnt='10 of 10 pass ✓'; count.setAttribute('class','t-sm bold green'); }
+  count.textContent=cnt;
+  op(notes,seg(t,0.85,0.92));
+ }};
+}
+});
+
+/* ---------- 8. BM25 ---------- */
+STEPS.push({
+id:'bm25',nav:'BM25 lexical search',title:'8. BM25: the lexical retriever',
+summary:'Exact identifiers, part numbers, acronyms and names. Dense retrieval misses them; an inverted index does not.',
+duration:11000,
+phases:[
+{at:0,text:'Tokenize the query with the <b>same analyzer</b> as the index: lowercase, light stemming, and a pattern that keeps identifiers like ERR-4092 intact.'},
+{at:.15,text:'Look each term up in the <b>inverted index</b>. Rare terms carry high IDF: ERR-4092 appears in 3 chunks, “payments” in 41,000.'},
+{at:.45,text:'BM25 sums per-term contributions with <b>term-frequency saturation</b> (k1) and <b>length normalization</b> (b). The chunk matching the rare identifier and the phrase wins.'},
+{at:.8,text:'Tune against the eval set: field boosts (title&sup3;, breadcrumb&sup2;), query-time synonyms, phrase boosts, and a keyword subfield so codes and part numbers survive.'}
+],
+setup(svg){
+ txt(svg,40,44,'Query','t-md muted'); txt(svg,92,44,'“ERR-4092 payments failover”','t-md');
+ const toks=[['err-4092','chip-dark'],['payments','chip'],['failover','chip']].map((k,i)=>{ const c=chip(svg,40+i*92,58,k[0],k[1],11); op(c,0); return c; });
+ const an=chip(svg,330,58,'analyzer: lowercase · light stem · keyword subfield keeps ERR-4092 intact','chip-blue',10); op(an,0);
+ txt(svg,40,112,'Inverted index (chunk level)','t-md muted');
+ rect(svg,40,122,440,22,4,'box-dark'); [['term',50],['df',150],['idf',210],['postings',300]].forEach(c=>txt(svg,c[1],137,c[0],'t-xs t-mono white'));
+ const ROWS=[['err-4092','3',8.9,['c17','c88','c203'],true],['failover','1,200',4.6,['c17','c203','c355','c410','…'],true],['payments','41,000',1.2,['c2','c9','c17','c88','…'],true],['sso','2,300',3.9,['c31','c77','…'],false],['runbook','6,800',2.7,['c17','c355','…'],false]];
+ const rows=ROWS.map((r,i)=>{ const y=150+i*40, gg=g(svg); const bg=rect(gg,40,y,440,36,4,i%2?'box-grey':'box'); txt(gg,50,y+22,r[0],'t-sm t-mono'+(r[4]?'':' muted')); txt(gg,150,y+22,r[1],'t-xs t-mono muted'); rect(gg,210,y+12,r[2]*8,12,2,r[4]?'tile-blue':'tile-grey'); const posts=r[3].map((p,k)=>chip(gg,300+k*36,y+8,p,'chip',9.5)); if(!r[4]) op(gg,0.45); return {bg,posts,i}; });
+ txt(svg,520,112,'Candidate chunks · score = Σ per-term contributions','t-md muted');
+ const C=[['c17','Payments Runbook › Failover',[150,70,22]],['c203','INC-4507 › Timeline',[150,62,0]],['c88','Error catalogue › ERR-4092',[145,0,24]],['c355','Ledger Runbook › Failover',[0,68,0]],['c2','Payments overview',[0,0,26]]];
+ const cols=['#0f172a','#3b82f6','#94a3b8'];
+ const cands=C.map((c,i)=>{ const y=130+i*56, gg=g(svg); rect(gg,520,y,400,50,6,'box'); const rk=txt(gg,530,y+20,'#'+(i+1),'t-sm bold muted'); txt(gg,560,y+20,c[0],'t-sm t-mono'); txt(gg,612,y+20,c[1],'t-xs muted'); let x=560; const segs=c[2].map((w,k)=>{ const s=rect(gg,x,y+30,0,10,2,'',{fill:cols[k]}); x+=w; return {s,w}; }); const sc=txt(gg,910,y+40,'','t-xs t-mono','end'); op(rk,0); return {rk,segs,sc}; });
+ const lg=g(svg); ['err-4092','failover','payments'].forEach((L,i)=>{ rect(lg,520+i*110,418,10,10,2,'',{fill:cols[i]}); txt(lg,535+i*110,427,L,'t-xs muted'); });
+ const tune=g(svg); [['title^3 · breadcrumb^2 · body','chip-blue'],['k1 = 1.2, b = 0.75','chip'],['query-time synonyms','chip'],['pattern tokenizer [A-Z]{2,}-\\d+','chip'],['phrase boost for quoted text','chip']].reduce((x,c)=>{ const ch=chip(tune,x,500,c[0],c[1],10); return x+ch._w+8; },40); op(tune,0);
+ const TW=[[0.15,0.25],[0.25,0.35],[0.35,0.45]];
+ return {render(t){
+  toks.forEach((c,i)=>op(c,seg(t,0.02+i*0.03,0.06+i*0.03))); op(an,seg(t,0.1,0.15));
+  rows.forEach((r,i)=>{ if(i<3){ r.bg.setAttribute('class',(t>=TW[i][0]&&t<0.5)?'box hl':(i%2?'box-grey':'box')); r.posts.forEach(p=>p.firstChild.setAttribute('class',t>=TW[i][0]?'chip-blue':'chip')); } });
+  cands.forEach(cd=>{ let total=0; cd.segs.forEach((s,k)=>{ const p=seg(t,TW[k][0]+0.02,TW[k][1]); s.s.setAttribute('width',(s.w*p).toFixed(1)); total+=s.w*p; }); cd.sc.textContent=t>0.16?(total/16).toFixed(1):''; op(cd.rk,seg(t,0.5,0.56)); });
+  op(tune,seg(t,0.8,0.86));
+ }};
+}
+});
+
+/* ---------- 9. Semantic search (HNSW) ---------- */
+STEPS.push({
+id:'dense',nav:'Semantic search (HNSW)',title:'9. Semantic search: embeddings and HNSW',
+summary:'Meaning, not keywords. The query becomes a vector and an approximate nearest-neighbour graph finds its neighbours in milliseconds.',
+duration:12000,
+phases:[
+{at:0,text:'Embed the query with the model’s <b>query-side prefix</b> (e5 and bge need it, or recall silently drops). Cache repeated queries.'},
+{at:.2,text:'<b>HNSW</b>: enter at the sparse top layer and greedily walk toward the query vector.'},
+{at:.43,text:'Descend a layer and refine. Each layer has more nodes and shorter edges.'},
+{at:.63,text:'At the bottom layer <b>ef_search</b> sets the beam width: higher means better recall and more latency. Target recall@10 &ge; 0.95 versus brute force.'},
+{at:.86,text:'<b>Overfetch</b> 100–200 candidates when you plan to fuse and rerank. Retrieve small chunks; expand to parents later.'}
+],
+setup(svg){
+ txt(svg,40,44,'Query','t-md muted');
+ rect(svg,40,58,280,60,8,'box'); lines(svg,52,80,['“How do we fail over payments to the','secondary region?”'],'t-sm',16);
+ const eb=g(svg); rect(eb,40,140,280,44,8,'box-blue'); txt(eb,180,158,'embed with query prefix','t-sm bold','middle'); txt(eb,180,175,'“query: …” for e5 / bge-style models','t-xs muted','middle'); op(eb,0);
+ const a1=arrow(svg,180,118,180,138); op(a1,0);
+ const vec=chip(svg,40,205,'[0.12, −0.03, 0.44, …]  1024-d','chip-dark',10); op(vec,0);
+ const a2=arrow(svg,320,215,352,215); op(a2,0);
+ const notes=lines(svg,40,262,['ANN index: HNSW','• M = 16–32 links per node','• ef_construction = 128–256 at build time','• ef_search = 64–256 at query time:','  wider beam → better recall, more latency','• Measure recall@10 vs brute force: ≥ 0.95'],'t-xs',15); op(notes,0);
+ const over=g(svg); rect(over,40,370,280,72,8,'box-green'); lines(over,52,392,['Overfetch 100–200 candidates per retriever','when you will fuse and rerank.','Retrieve small chunks; expand to parents later.'],'t-xs',15); op(over,0);
+ const LX=360, LW=560, bands=[{y:58,h:76,label:'Layer 2 · sparse entry layer'},{y:170,h:116,label:'Layer 1'},{y:322,h:160,label:'Layer 0 · every vector'}];
+ bands.forEach(b=>{ rect(svg,LX,b.y,LW,b.h,8,'box-grey'); txt(svg,LX+10,b.y+14,b.label,'t-xs muted'); });
+ const R=rng(3), L0=[]; for(let i=0;i<60;i++) L0.push({x:LX+20+R()*(LW-40),u:0.25+R()*0.7,i:i});
+ const layers=[L0.filter(p=>p.i%12===0),L0.filter(p=>p.i%3===0),L0];
+ const q0={x:790,u:0.68};
+ const mapped=(p,b)=>({x:p.x,y:b.y+p.u*b.h,ref:p});
+ const nodes=layers.map((L,li)=>L.map(p=>mapped(p,bands[li])));
+ const qs=bands.map(b=>mapped(q0,b));
+ nodes.forEach(L=>L.forEach((n,i)=>L.map((m,j)=>({m:m,d:dist(n,m),j:j})).filter(o=>o.j!==i).sort((a,b)=>a.d-b.d).slice(0,2).forEach(o=>line(svg,n.x,n.y,o.m.x,o.m.y,'wire wire-faint'))));
+ nodes.forEach((L,li)=>L.forEach(n=>circ(svg,n.x,n.y,li===0?5:4,'tile-grey')));
+ function greedy(L,start,q){ const P=[start]; let cur=start; for(let k=0;k<30;k++){ const dc=dist(cur,q); const c=L.filter(n=>dist(n,q)<dc-0.5); if(!c.length) break; c.sort((a,b)=>dist(a,cur)-dist(b,cur)); cur=c[0]; P.push(cur); } return P; }
+ const entry=nodes[0].slice().sort((a,b)=>a.x-b.x)[0];
+ const paths=[]; let start=entry;
+ for(let li=0;li<3;li++){ const P=greedy(nodes[li],start,qs[li]); paths.push(P); if(li<2) start=nodes[li+1].find(n=>n.ref===P[P.length-1].ref); }
+ const pathEls=paths.map(P=>P.slice(1).map((n,k)=>{ const l=line(svg,P[k].x,P[k].y,n.x,n.y,'wire wire-active'); op(l,0); return l; }));
+ const desc=[0,1].map(li=>{ const a=paths[li][paths[li].length-1], b=paths[li+1][0]; const l=line(svg,a.x,a.y,b.x,b.y,'wire wire-dash wire-active'); op(l,0); return l; });
+ const qm=bands.map((b,li)=>{ const s=star(svg,qs[li].x,qs[li].y,li===2?9:6); op(s,0); return s; });
+ const cur=circ(svg,entry.x,entry.y,6,'',{fill:'#2563eb',stroke:'#fff','stroke-width':1.5}); op(cur,0);
+ const near=nodes[2].slice().sort((a,b)=>dist(a,qs[2])-dist(b,qs[2])).slice(0,10);
+ const nearR=near.map(n=>{ const c=circ(svg,n.x,n.y,8,'ring ring-green'); op(c,0); return c; });
+ const ef=chip(svg,LX+10,bands[2].y+bands[2].h-30,'ef_search: beam width','chip-blue',10); op(ef,0);
+ const WIN=[[0.2,0.4],[0.43,0.6],[0.63,0.8]];
+ return {render(t){
+  op(eb,seg(t,0.02,0.08)); op(a1,seg(t,0.02,0.06)); op(vec,seg(t,0.1,0.15)); op(a2,seg(t,0.16,0.2)); op(notes,seg(t,0.45,0.52)); op(over,seg(t,0.86,0.92));
+  qm.forEach(s=>op(s,seg(t,0.18,0.22)));
+  let cx=entry.x, cy=entry.y;
+  paths.forEach((P,li)=>{ const a=WIN[li][0], b=WIN[li][1], n=P.length-1;
+   if(n>0) pathEls[li].forEach((l,k)=>{ const s=a+(b-a)*k/n, e=a+(b-a)*(k+1)/n; op(l,seg(t,s,e,linear)); if(t>=s&&t<e){ const p=seg(t,s,e,linear); cx=lerp(P[k].x,P[k+1].x,p); cy=lerp(P[k].y,P[k+1].y,p); } });
+   if(t>=b){ cx=P[n].x; cy=P[n].y; }
+   if(li<2&&t>=b){ const p=seg(t,b,WIN[li+1][0]); op(desc[li],p); if(t<WIN[li+1][0]){ cx=lerp(P[n].x,paths[li+1][0].x,p); cy=lerp(P[n].y,paths[li+1][0].y,p); } } });
+  cur.setAttribute('cx',cx.toFixed(1)); cur.setAttribute('cy',cy.toFixed(1)); op(cur,seg(t,0.18,0.22));
+  nearR.forEach((r,i)=>op(r,seg(t,0.8+i*0.006,0.84+i*0.006))); op(ef,seg(t,0.63,0.68));
+ }};
+}
+});
+
+/* ---------- 10. Hybrid retrieval + rerank ---------- */
+STEPS.push({
+id:'hybrid',nav:'Hybrid retrieval + rerank',title:'10. Hybrid retrieval: fuse, then rerank',
+summary:'Run both retrievers with the same filters, merge with reciprocal rank fusion, and let a cross-encoder pick the final few.',
+duration:14000,
+phases:[
+{at:0,text:'Run <b>BM25 and dense search in parallel</b> with identical filters, each returning 100+ candidates. Shown here: the top 8 of each. Highlighted chunks appear in both lists.'},
+{at:.15,text:'<b>Reciprocal rank fusion</b>: each candidate scores &Sigma; 1/(60 + rank) over the lists it appears in. Scale-free, nothing to tune; items on both lists rise to the top.'},
+{at:.55,text:'A <b>cross-encoder reranker</b> reads query and chunk together and re-scores the fused top 50–100 down to 5–10. The largest single quality gain after hybrid itself, at +100–400 ms.'},
+{at:.84,text:'Then <b>expand children to parents</b>, cap chunks per document (2–3), and assemble the context with page-level citations.'}
+],
+setup(svg){
+ const B=['c17','c203','c88','c355','c2','c410','c77','c31'], D=['c203','c512','c17','c640','c355','c9','c88','c128'], K=60;
+ const ids=Array.from(new Set(B.concat(D)));
+ const orders=[]; for(let k=0;k<=8;k++){ const sc={}; ids.forEach(id=>sc[id]=0); for(let r=1;r<=k;r++){ sc[B[r-1]]+=1/(K+r); sc[D[r-1]]+=1/(K+r); } const ord=ids.filter(id=>sc[id]>0).sort((a,b)=>(sc[b]-sc[a])||(ids.indexOf(a)-ids.indexOf(b))); orders.push({ord:ord,sc:sc}); }
+ const RH=30, Y0=100;
+ const colB=g(svg), colD=g(svg), colF=g(svg);
+ function header(parent,x,title,sub){ txt(parent,x,44,title,'t-md muted'); txt(parent,x,62,sub,'t-xs muted'); rect(parent,x,74,240,20,4,'box-dark'); txt(parent,x+8,88,'rank   chunk','t-xs t-mono white'); }
+ header(colB,40,'BM25 (lexical)','top 8 of 100 · same filters'); header(colD,680,'Dense (vectors)','top 8 of 100 · same filters'); header(colF,360,'Fused · RRF','score = Σ 1 / (60 + rank)');
+ const shared=B.filter(id=>D.indexOf(id)>-1);
+ function rowsFor(parent,x,list){ return list.map((id,i)=>{ const gg=g(parent); rect(gg,x,0,240,RH-4,4,shared.indexOf(id)>-1?'box-amber':'box'); txt(gg,x+10,18,String(i+1),'t-xs t-mono muted'); txt(gg,x+44,18,id,'t-sm t-mono'); tr(gg,0,Y0+i*RH); return gg; }); }
+ rowsFor(colB,40,B); rowsFor(colD,680,D);
+ const fused={}; ids.forEach(id=>{ const gg=g(colF); rect(gg,360,0,240,RH-4,4,'box-blue'); const rk=txt(gg,370,18,'','t-xs t-mono muted'); txt(gg,404,18,id,'t-sm t-mono'); const bar=rect(gg,460,8,0,10,2,'tile-blue'); const sc=txt(gg,592,18,'','t-xs t-mono muted','end'); op(gg,0); fused[id]={gg:gg,rk:rk,bar:bar,sc:sc}; });
+ const flyB=B.map((id,i)=>{ const c=chip(svg,0,0,'+1/'+(K+i+1),'chip-amber',9.5); op(c,0); return c; });
+ const flyD=D.map((id,i)=>{ const c=chip(svg,0,0,'+1/'+(K+i+1),'chip-amber',9.5); op(c,0); return c; });
+ const FIN=[['c17',0.93],['c203',0.91],['c88',0.62],['c640',0.55],['c355',0.41]];
+ const colR=g(svg); txt(colR,680,44,'After rerank','t-md muted'); txt(colR,680,62,'top 5 → parents · ≤ 3 per document · citations','t-xs muted'); rect(colR,680,74,240,20,4,'box-dark'); txt(colR,688,88,'rank   chunk   score','t-xs t-mono white');
+ const finRows=FIN.map((f,i)=>{ const gg=g(colR); rect(gg,680,Y0+i*RH,240,RH-4,4,'box-green'); txt(gg,690,Y0+i*RH+18,String(i+1),'t-xs t-mono muted'); txt(gg,724,Y0+i*RH+18,f[0],'t-sm t-mono'); txt(gg,912,Y0+i*RH+18,f[1].toFixed(2),'t-xs t-mono muted','end'); op(gg,0); return gg; }); op(colR,0);
+ const finLinks=FIN.map((f,i)=>{ const l=path(svg,'M0 0','wire wire-active',{'marker-end':'url(#arr-blue)'}); op(l,0); return {l:l,id:f[0]}; });
+ /* drawn after the links so the curves disappear into the box: candidates in, ranked list out */
+ const rr=g(svg); rect(rr,380,96,220,180,10,'box-violet'); txt(rr,490,150,'Cross-encoder reranker','t-sm bold','middle'); lines(rr,394,176,['reads (query, chunk text) together','scores the fused top 60 → keeps 5','+100–400 ms'],'t-xs muted',15); op(rr,0);
+ const notes=g(svg); [['expand children → parents','chip-blue'],['≤ 2–3 chunks per document','chip'],['dedupe near-identical passages','chip'],['attach page + bbox for citations','chip']].reduce((x,c)=>{ const ch=chip(notes,x,500,c[0],c[1],10); return x+ch._w+8; },40); op(notes,0);
+ const finalOrd=orders[8].ord;
+ return {render(t){
+  const stepF=clamp((t-0.15)/0.04,0,8), k=Math.floor(stepF), frac=k>=8?1:easeIO(stepF-k);
+  const prev=orders[Math.min(8,k)], next=orders[Math.min(8,k+1)];
+  ids.forEach(id=>{ const f=fused[id]; const i0=prev.ord.indexOf(id), i1=next.ord.indexOf(id); const y0=i0<0?Y0+8*RH+20:Y0+i0*RH, y1=i1<0?Y0+8*RH+20:Y0+i1*RH;
+   tr(f.gg,0,lerp(y0,y1,frac)); const show=lerp((i0>=0&&i0<8)?1:0,(i1>=0&&i1<8)?1:0,frac); op(f.gg,t>=0.15?show:0);
+   const s=lerp(prev.sc[id],next.sc[id],frac); f.bar.setAttribute('width',(s*2600).toFixed(1)); f.sc.textContent=s>0?s.toFixed(4):''; f.rk.textContent=i1>=0?String(i1+1):''; });
+  for(let r=0;r<8;r++){ const s=0.15+r*0.04, p=seg(t,s,s+0.04,linear), active=t>=s&&t<s+0.04;
+   const tb=next.ord.indexOf(B[r]), td=next.ord.indexOf(D[r]);
+   tr(flyB[r],lerp(285,320,p),lerp(Y0+r*RH+3,Y0+(tb<0?8:tb)*RH+3,p)); op(flyB[r],active?1:0);
+   tr(flyD[r],lerp(640,560,p),lerp(Y0+r*RH+3,Y0+(td<0?8:td)*RH+3,p)); op(flyD[r],active?1:0); }
+  const s2=seg(t,0.55,0.62); op(colB,1-s2); op(colD,1-s2); tr(colF,lerp(0,-320,s2),0);
+  op(rr,seg(t,0.6,0.66)); op(colR,seg(t,0.66,0.72));
+  finRows.forEach((r,i)=>op(r,seg(t,0.7+i*0.03,0.74+i*0.03)));
+  finLinks.forEach((L,i)=>{ const fi=finalOrd.indexOf(L.id), y=Y0+fi*RH+13, y2=Y0+i*RH+13; L.l.setAttribute('d','M280 '+y+' C 480 '+y+', 480 '+y2+', 676 '+y2); op(L.l,seg(t,0.7+i*0.03,0.76+i*0.03)); });
+  op(notes,seg(t,0.84,0.9));
+ }};
+}
+});
+
+/* ---------- 11. GraphRAG ---------- */
+STEPS.push({
+id:'graphrag',nav:'GraphRAG',title:'11. GraphRAG for multi-hop and corpus-wide questions',
+summary:'Extract entities and typed relationships into a graph with provenance, summarize communities, and use it as a third retriever or for global questions.',
+duration:15000,
+phases:[
+{at:0,text:'An LLM extracts <b>entities and typed relationships</b> from each chunk using a strict schema (Service, Team, Incident, Policy; DEPENDS_ON, OWNED_BY, CAUSED_BY, SUPERSEDES). Every edge keeps its source chunk ids.'},
+{at:.3,text:'<b>Entity resolution</b> is the real work: “payment-service” and “Payments Service” must become one node. Normalize, block by type, merge on name-embedding similarity, keep aliases.'},
+{at:.48,text:'<b>Leiden community detection</b> groups the graph; an LLM writes a summary per community. Index the summaries as ordinary chunks too.'},
+{at:.65,text:'<b>Local search</b>: match query entities, expand 1–2 hops, collect their source chunks, and feed that list into RRF as a third retriever. Apply the ACL filter <i>after</i> expansion.'},
+{at:.85,text:'<b>Global search</b>: map-reduce over community summaries for questions that span the corpus. Budget it: extraction over 2M chunks is ~$500–1k with a small model, $10k+ with a frontier model. Scope it to entity-dense collections.'}
+],
+setup(svg){
+ txt(svg,40,44,'Source chunks','t-md muted');
+ const CT=[['Checkout API › Dependencies','calls the Payments Service to','authorize each order…'],['Payments Runbook › Overview','owned by Team Atlas; depends on','the Ledger Service for postings…'],['INC-4412 › Root cause','Ledger Service connection pool','exhaustion; owner Team Orion…'],['INC-4507 › Timeline','payment-service degraded after','a Ledger latency spike…'],['Retention Policy v4 › Scope','supersedes v3; owner: Legal;','applies to all payment records…']];
+ const cards=CT.map((c,i)=>{ const y=58+i*86, gg=g(svg); const bg=rect(gg,40,y,215,74,8,'box'); txt(gg,50,y+16,c[0],'t-xs t-mono blue'); txt(gg,50,y+34,c[1],'t-xs'); txt(gg,50,y+48,c[2],'t-xs'); txt(gg,50,y+66,'chunk c'+(17+i*31),'t-xs t-mono muted'); return {bg:bg,y:y}; });
+ const TYPE={Service:'box-blue',Team:'box-teal',Incident:'box-amber',Policy:'box-violet'};
+ const N={pay:{n:'Payments Service',t:'Service',x:490,y:260,c:1},dup:{n:'payment-service',t:'Service',x:330,y:400,c:3,dup:true},led:{n:'Ledger Service',t:'Service',x:610,y:320,c:1},chk:{n:'Checkout API',t:'Service',x:380,y:215,c:0},atl:{n:'Team Atlas',t:'Team',x:400,y:310,c:1},ori:{n:'Team Orion',t:'Team',x:690,y:380,c:2},i1:{n:'INC-4412',t:'Incident',x:600,y:470,c:2},i2:{n:'INC-4507',t:'Incident',x:450,y:470,c:3},p4:{n:'Retention v4',t:'Policy',x:610,y:80,c:4},p3:{n:'Retention v3',t:'Policy',x:680,y:150,c:4},leg:{n:'Legal',t:'Team',x:500,y:70,c:4}};
+ const E=[['chk','pay','DEPENDS_ON'],['pay','led','DEPENDS_ON'],['pay','atl','OWNED_BY'],['led','ori','OWNED_BY'],['i1','led','CAUSED_BY'],['i2','pay','AFFECTED'],['dup','led','DEPENDS_ON'],['p4','p3','SUPERSEDES'],['p3','leg','OWNED_BY']];
+ const keys=Object.keys(N);
+ const hulls=g(svg); [[['chk','pay','led','atl','ori'],'#dbeafe','#93c5fd'],[['i1','i2'],'#fef3c7','#fcd34d'],[['p4','p3','leg'],'#ede9fe','#c4b5fd']].forEach(h=>{ const ps=h[0].map(k=>N[k]); const xs=ps.map(p=>p.x), ys=ps.map(p=>p.y); const x0=Math.min.apply(null,xs), x1=Math.max.apply(null,xs), y0=Math.min.apply(null,ys), y1=Math.max.apply(null,ys); el('ellipse',{cx:(x0+x1)/2,cy:(y0+y1)/2,rx:(x1-x0)/2+34,ry:Math.max(34,(y1-y0)/2+26),fill:h[1],stroke:h[2],'class':'hull','fill-opacity':0.6},hulls); }); op(hulls,0);
+ const edgeEls=E.map(e=>{ const gg=g(svg); const l=line(gg,0,0,0,0,'wire'); const lb=txt(gg,0,0,e[2],'t-xs t-mono muted','middle'); op(gg,0); return {gg:gg,l:l,lb:lb,e:e}; });
+ const nodeEls={}; keys.forEach((k,i)=>{ const n=N[k], gg=g(svg); const w=n.n.length*6.2+18; rect(gg,-w/2,-11,w,22,11,TYPE[n.t]); txt(gg,0,4,n.n,'t-xs bold','middle'); const ring=rect(gg,-w/2-4,-15,w+8,30,15,'ring ring-amber'); op(ring,0); op(gg,0); nodeEls[k]={gg:gg,ring:ring,w:w,i:i}; });
+ const alias=chip(svg,0,0,'alias: payment-service','chip',9.5); op(alias,0);
+ txt(svg,740,44,'Community summaries','t-md muted');
+ const SUM=[['C1 · Payments platform','Checkout → Payments → Ledger;','owned by Atlas and Orion.','box-blue'],['C2 · 2025 P1 incidents','Two P1s, both traced to','Ledger Service capacity.','box-amber'],['C3 · Data retention','v4 supersedes v3 (2025);','owner: Legal.','box-violet']];
+ const sums=SUM.map((s,i)=>{ const y=58+i*92, gg=g(svg); const bg=rect(gg,740,y,180,80,8,s[3]); txt(gg,750,y+18,s[0],'t-xs bold'); txt(gg,750,y+38,s[1],'t-xs'); txt(gg,750,y+52,s[2],'t-xs'); txt(gg,750,y+70,'indexed as a chunk too','t-xs muted'); op(gg,0); return {gg:gg,bg:bg}; });
+ const q1=g(svg); rect(q1,740,340,180,62,8,'box'); lines(q1,750,358,['Local: “Which systems depend','on Payments, who owns them?”','→ 2 hops → chunks → RRF'],'t-xs',14); op(q1,0);
+ const q2=g(svg); rect(q2,740,414,180,62,8,'box'); lines(q2,750,432,['Global: “Recurring P1 root','causes this year?”','→ map summaries → reduce'],'t-xs',14); op(q2,0);
+ const cost=chip(svg,290,512,'Extraction over 2M chunks ≈ $500–1k (small model) · $10k+ (frontier) → scope to entity-dense collections','chip-amber',10); op(cost,0);
+ const hop1=['chk','led','atl','i2'], hop2=['ori','i1'];
+ return {render(t){
+  keys.forEach((k,i)=>{ const n=N[k], ne=nodeEls[k]; const a=0.02+i*0.024, p=seg(t,a,a+0.08); let x=lerp(250,n.x,p), y=lerp(cards[n.c].y+37,n.y,p), o=seg(t,a,a+0.04);
+   if(n.dup&&t>0.3){ const m=seg(t,0.3,0.42); x=lerp(x,N.pay.x,m); y=lerp(y,N.pay.y,m); o*=1-m; }
+   n.cx=x; n.cy=y; tr(ne.gg,x,y); op(ne.gg,o);
+   let ro=0; if(k==='pay') ro=seg(t,0.65,0.7); if(hop1.indexOf(k)>-1) ro=seg(t,0.7,0.76); if(hop2.indexOf(k)>-1) ro=seg(t,0.76,0.82); ro*=1-seg(t,0.85,0.88); op(ne.ring,ro); });
+  tr(alias,N.pay.cx-60,N.pay.cy+14); op(alias,seg(t,0.42,0.46)*(1-seg(t,0.62,0.65)));
+  edgeEls.forEach(ed=>{ const a=N[ed.e[0]], b=N[ed.e[1]]; ed.l.setAttribute('x1',a.cx.toFixed(1)); ed.l.setAttribute('y1',a.cy.toFixed(1)); ed.l.setAttribute('x2',b.cx.toFixed(1)); ed.l.setAttribute('y2',b.cy.toFixed(1)); ed.lb.setAttribute('x',((a.cx+b.cx)/2).toFixed(1)); ed.lb.setAttribute('y',((a.cy+b.cy)/2-4).toFixed(1));
+   const i=Math.max(nodeEls[ed.e[0]].i,nodeEls[ed.e[1]].i), a0=0.02+i*0.024+0.08; let o=seg(t,a0,a0+0.05); if(ed.e[0]==='dup') o*=1-seg(t,0.3,0.42);
+   let hot=false; if(t>=0.7&&t<0.85){ const touchesPay=ed.e[0]==='pay'||ed.e[1]==='pay', touchesHop1=hop1.indexOf(ed.e[0])>-1||hop1.indexOf(ed.e[1])>-1; hot=touchesPay||(t>=0.76&&touchesHop1); }
+   ed.l.setAttribute('class',hot?'wire wire-active':'wire'); op(ed.gg,o); });
+  op(hulls,seg(t,0.48,0.56));
+  const gi=Math.floor((t-0.86)/0.04);
+  sums.forEach((s,i)=>{ op(s.gg,seg(t,0.52+i*0.03,0.58+i*0.03)); s.bg.setAttribute('class',SUM[i][3]+((t>=0.86&&t<0.98&&gi===i)?' hl':'')); });
+  cards.forEach((c,i)=>c.bg.setAttribute('class',(t>=0.72&&t<0.85&&i<2)?'box hl':'box'));
+  op(q1,seg(t,0.65,0.7)); op(q2,seg(t,0.85,0.9)); op(cost,seg(t,0.9,0.95));
+ }};
+}
+});
+
+/* ---------- 12. End-to-end query ---------- */
+STEPS.push({
+id:'query',nav:'End-to-end query',title:'12. The query path, end to end',
+summary:'From an authenticated question to a streamed, cited answer in about a second and a half. Playback is slowed roughly 6×.',
+duration:10000,
+phases:[
+{at:0,text:'<b>Auth</b> resolves the user’s groups from the identity provider (cached). They become the ACL filter, in code, before anything else runs.'},
+{at:.02,text:'<b>Query understanding</b>: rewrite the turn into a standalone query, extract soft filters against a closed schema, pick a route. Skip it for simple queries.'},
+{at:.2,text:'<b>BM25, dense ANN and graph expansion</b> run in parallel with identical filters, each overfetching 100+ candidates.'},
+{at:.27,text:'<b>Fusion</b> takes microseconds. The <b>cross-encoder rerank</b> takes 100–400 ms and is worth every one of them.'},
+{at:.43,text:'<b>Context assembly</b> expands to parents, caps per document, attaches page and bbox for citations. <b>Generation</b> streams; the first token arrives about a second later.'},
+{at:.93,text:'Log every (user, query, retrieved chunk ids, answer) with a trace id. Run the golden set in CI on every change to chunking, embeddings, prompts or fusion.'}
+],
+setup(svg){
+ const TOTAL=1600;
+ const ST=[['Auth + ACL',0,15,'box-grey'],['Query understanding (LLM)',15,315,'box-blue'],['Embed query',315,365,'box-teal'],['BM25 search',315,375,'box-teal'],['Dense ANN',365,415,'box-teal'],['Graph expansion',315,395,'box-teal'],['RRF fusion',415,418,'box-grey'],['Cross-encoder rerank',418,668,'box-violet'],['Context assembly',668,688,'box-grey'],['Generation · time to first token',688,1488,'box-amber']];
+ const FB=[['Auth',40,90],['Understand',140,110],['Retrieve ∥',260,120],['RRF',390,60],['Rerank',460,90],['Assemble',560,100],['Generate',670,120],['Answer',800,120]];
+ const fbEls=FB.map((f,i)=>{ const gg=g(svg); rect(gg,f[1],70,f[2],44,8,'box'); txt(gg,f[1]+f[2]/2,89+(i===2?-6:4),f[0],'t-sm bold','middle'); if(i===2) txt(gg,f[1]+f[2]/2,105,'BM25 · ANN · graph','t-xs muted','middle'); if(i<FB.length-1) arrow(svg,f[1]+f[2],92,FB[i+1][1]-2,92); return gg; });
+ const tok=circ(svg,85,92,7,'',{fill:'#f59e0b',stroke:'#b45309','stroke-width':1});
+ const GX=230, GW=670, GY=150, RH=30;
+ const X=ms=>GX+ms/TOTAL*GW;
+ for(let ms=0;ms<=TOTAL;ms+=200){ line(svg,X(ms),GY-6,X(ms),GY+ST.length*RH,'wire wire-faint'); txt(svg,X(ms),GY-10,ms+' ms','t-xs muted','middle'); }
+ const bars=ST.map((s,i)=>{ const y=GY+i*RH; txt(svg,GX-10,y+17,s[0],'t-xs','end'); rect(svg,X(s[1]),y+4,Math.max(3,X(s[2])-X(s[1])),RH-10,4,s[3],{opacity:0.25}); const b=rect(svg,X(s[1]),y+4,0,RH-10,4,s[3]); const ms=txt(svg,X(s[2])+6,y+17,'','t-xs t-mono muted'); return {b:b,ms:ms,s:s}; });
+ const cursor=line(svg,GX,GY-6,GX,GY+ST.length*RH,'wire wire-amber'); const clab=txt(svg,GX,GY+ST.length*RH+14,'','t-xs t-mono amber','middle');
+ const stageOf=ms=>ms<15?0:ms<315?1:ms<415?2:ms<418?3:ms<668?4:ms<688?5:ms<1488?6:7;
+ const fin=g(svg); [['first token ≈ 1.5 s','chip-amber'],['retrieval + rerank done ≈ 0.7 s','chip-teal'],['log chunk ids + trace id · eval in CI','chip-dark']].reduce((x,c)=>{ const ch=chip(fin,x,495,c[0],c[1],10); return x+ch._w+8; },230); op(fin,0);
+ return {render(t){
+  const ms=t*TOTAL;
+  bars.forEach(b=>{ const w=clamp((ms-b.s[1])/(b.s[2]-b.s[1])); b.b.setAttribute('width',w>0?Math.max(3,(X(b.s[2])-X(b.s[1]))*w).toFixed(1):'0'); b.ms.textContent=ms>=b.s[2]?(b.s[2]-b.s[1])+' ms':''; });
+  cursor.setAttribute('x1',X(ms).toFixed(1)); cursor.setAttribute('x2',X(ms).toFixed(1)); clab.setAttribute('x',X(ms).toFixed(1)); clab.textContent=Math.round(ms)+' ms';
+  const si=stageOf(ms), f=FB[si]; tok.setAttribute('cx',(f[1]+f[2]/2).toFixed(1)); fbEls.forEach((e,i)=>e.firstChild.setAttribute('class',i===si?'box hl':'box'));
+  op(fin,seg(t,0.93,0.98));
+ }};
+}
+});
+
+/* ---------- player ---------- */
+const stepsEl=$('#steps'), svg=$('#stage'), captionEl=$('#caption'), titleEl=$('#step-title'), sumEl=$('#step-summary'), playBtn=$('#play'), scrub=$('#scrub'), phasesEl=$('#phases'), autoEl=$('#autoadv'), speedEl=$('#speed');
+const reduced=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+let idx=0, t=0, playing=false, scene=null, raf=0, last=0, autoTimer=0, speed=1;
+function resetSvg(){ while(svg.firstChild) svg.removeChild(svg.firstChild); const defs=el('defs',{},svg); [['arr','#94a3b8'],['arr-blue','#2563eb']].forEach(m=>{ const mk=el('marker',{id:m[0],viewBox:'0 0 10 10',refX:'9',refY:'5',markerWidth:'7',markerHeight:'7',orient:'auto-start-reverse'},defs); el('path',{d:'M0 0 L10 5 L0 10 z',fill:m[1]},mk); }); }
+function plain(html){ const d=document.createElement('div'); d.innerHTML=html; return d.textContent; }
+function buildNav(){ STEPS.forEach((s,i)=>{ const li=document.createElement('li'); const b=document.createElement('button'); b.type='button'; const n=document.createElement('span'); n.className='n'; n.textContent=String(i+1); const l=document.createElement('span'); l.textContent=s.nav; b.appendChild(n); b.appendChild(l); b.addEventListener('click',()=>loadStep(i)); li.appendChild(b); stepsEl.appendChild(li); }); }
+function buildPhases(step){ phasesEl.innerHTML=''; step.phases.forEach((p,k)=>{ const b=document.createElement('button'); b.type='button'; b.textContent='Phase '+(k+1); b.title=plain(p.text); b.addEventListener('click',()=>{ setPlaying(false); t=p.at; render(); }); phasesEl.appendChild(b); }); }
+function currentPhase(){ const ph=STEPS[idx].phases; let pi=0; ph.forEach((p,k)=>{ if(t>=p.at-1e-6) pi=k; }); return pi; }
+function render(){ scene.render(t); const step=STEPS[idx], pi=currentPhase(), key=idx+':'+pi; if(captionEl.dataset.pi!==key){ captionEl.innerHTML=step.phases[pi].text; captionEl.dataset.pi=key; }
+ Array.prototype.forEach.call(phasesEl.children,(b,k)=>{ if(k===pi) b.setAttribute('aria-current','true'); else b.removeAttribute('aria-current'); });
+ scrub.value=Math.round(t*1000); scrub.setAttribute('aria-valuetext',Math.round(t*100)+'% through step '+(idx+1));
+ playBtn.textContent=reduced?(t>=1?'Restart':'Next phase'):(playing?'Pause':(t>=1?'Replay':'Play')); }
+function tick(ts){ if(!playing) return; const dt=last?Math.min(100,ts-last):0; last=ts; t=clamp(t+dt*speed/STEPS[idx].duration); render();
+ if(t>=1){ playing=false; last=0; render(); if(autoEl.checked&&idx<STEPS.length-1) autoTimer=setTimeout(()=>loadStep(idx+1),1600); return; }
+ raf=requestAnimationFrame(tick); }
+function setPlaying(v){ clearTimeout(autoTimer); cancelAnimationFrame(raf); playing=v; last=0; if(playing){ if(t>=1) t=0; raf=requestAnimationFrame(tick); } render(); }
+function loadStep(i,opts){ opts=opts||{}; clearTimeout(autoTimer); cancelAnimationFrame(raf); playing=false; idx=((i%STEPS.length)+STEPS.length)%STEPS.length; const step=STEPS[idx];
+ resetSvg(); scene=step.setup(svg); titleEl.textContent=step.title; sumEl.textContent=step.summary; buildPhases(step);
+ Array.prototype.forEach.call(stepsEl.querySelectorAll('button'),(b,k)=>{ if(k===idx) b.setAttribute('aria-current','step'); else b.removeAttribute('aria-current'); });
+ t=opts.t!=null?clamp(opts.t):0; render(); if(opts.autoplay!==false&&!reduced&&t<1) setPlaying(true); try{ history.replaceState(null,'','#s='+(idx+1)); }catch(e){} }
+function parseHash(){ const m=/s=(\d+)/.exec(location.hash), mt=/t=([0-9.]+)/.exec(location.hash); return {s:m?parseInt(m[1],10)-1:0,t:mt?parseFloat(mt[1]):null}; }
+playBtn.addEventListener('click',()=>{ if(reduced){ const ph=STEPS[idx].phases; if(t>=1) t=0; else { const nx=ph.find(p=>p.at>t+1e-6); t=nx?nx.at:1; } render(); } else setPlaying(!playing); });
+$('#prev').addEventListener('click',()=>loadStep(idx-1)); $('#next').addEventListener('click',()=>loadStep(idx+1));
+scrub.addEventListener('input',()=>{ setPlaying(false); t=scrub.value/1000; render(); });
+speedEl.addEventListener('change',()=>{ speed=parseFloat(speedEl.value)||1; });
+document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='select'||tag==='textarea') return;
+ if(e.key==='ArrowRight'){ loadStep(idx+1); e.preventDefault(); } else if(e.key==='ArrowLeft'){ loadStep(idx-1); e.preventDefault(); } else if(e.key===' '&&tag!=='button'){ playBtn.click(); e.preventDefault(); } });
+window.addEventListener('hashchange',()=>{ const h=parseHash(); if(h.s!==idx) loadStep(h.s,{t:h.t,autoplay:h.t==null}); });
+buildNav(); const h0=parseHash(); loadStep(clamp(h0.s,0,STEPS.length-1),{t:h0.t,autoplay:h0.t==null});
+})();
+</script>
+</body>
+</html>
