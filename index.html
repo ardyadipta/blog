@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Writing · Ardya Dipta Nandaviri</title>
+<meta name="description" content="Writing by Ardya Dipta Nandaviri on production AI, retrieval-augmented generation, reinforcement learning, machine learning systems, and applied GenAI.">
+<meta name="author" content="Ardya Dipta Nandaviri">
+<meta property="og:title" content="Writing · Ardya Dipta Nandaviri">
+<meta property="og:description" content="Practical notes on production AI, RAG, reinforcement learning, and scalable machine learning systems.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ardyadipta.github.io/blog/">
+<link rel="canonical" href="https://ardyadipta.github.io/blog/">
+<meta name="theme-color" content="#0b1220">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Ctext x='32' y='42' font-family='Helvetica,Arial,sans-serif' font-size='30' font-weight='700' fill='%2360a5fa' text-anchor='middle'%3EAD%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0b1220;
+  --bg2:#0f172a;
+  --panel:#111a2e;
+  --panel2:#152039;
+  --line:#22304d;
+  --line-strong:#34507f;
+  --ink:#e6edf7;
+  --ink2:#b7c3d8;
+  --muted:#8290ab;
+  --accent:#60a5fa;
+  --accent2:#34d399;
+  --amber:#fbbf24;
+  --violet:#a78bfa;
+  --max:1080px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+@media (max-width:720px){html{scroll-padding-top:84px}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--amber);outline-offset:3px}
+button,input{font:inherit}
+[hidden]{display:none!important}
+.wrap{width:min(100% - 48px,var(--max));margin-inline:auto}
+.skip{position:absolute;left:-999px;top:8px;background:var(--amber);color:#111;padding:8px 12px;border-radius:6px;z-index:20;font-weight:700}
+.skip:focus{left:8px}
+
+/* ===== Site chrome: shared by ardyadipta.github.io and ardyadipta.github.io/blog. Keep identical in both repos. ===== */
+.site-header{position:sticky;top:0;z-index:60;background:rgba(11,18,32,.9);border-bottom:1px solid #22304d;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:#e6edf7;font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.site-header__inner{display:flex;align-items:center;justify-content:space-between;gap:20px;width:min(100% - 48px,1080px);min-height:60px;margin:0 auto}
+.site-brand{flex:none;color:#e6edf7;font-size:16px;font-weight:750;letter-spacing:.1px;text-decoration:none;white-space:nowrap}
+.site-brand span{color:#60a5fa}
+.site-brand:hover{color:#fff;text-decoration:none}
+.site-menu{display:flex;align-items:center;gap:2px;min-width:0}
+.site-menu a{padding:7px 11px;border-radius:8px;color:#b7c3d8;font-size:14px;font-weight:500;text-decoration:none;white-space:nowrap}
+.site-menu a:hover{background:rgba(96,165,250,.1);color:#e6edf7;text-decoration:none}
+.site-menu a[aria-current]{background:rgba(96,165,250,.16);color:#fff;font-weight:650}
+.site-header a:focus-visible,.site-footer a:focus-visible{outline:3px solid #fbbf24;outline-offset:2px;border-radius:6px}
+.site-footer{max-width:none;margin:0;padding:28px 0 40px;border-top:1px solid #22304d;background:#0b1220;color:#8290ab;font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.site-footer__inner{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;width:min(100% - 48px,1080px);margin:0 auto}
+.site-footer__links{display:flex;gap:6px 18px;flex-wrap:wrap}
+.site-footer__links a{color:#b7c3d8;text-decoration:none}
+.site-footer__links a:hover{color:#e6edf7;text-decoration:underline}
+@media (max-width:720px){.site-header__inner{display:block;min-height:0;padding:10px 0 6px}.site-brand{display:inline-block;font-size:15px}.site-menu{gap:0;margin:3px -7px 0;overflow-x:auto;scrollbar-width:none}.site-menu::-webkit-scrollbar{display:none}.site-menu a{padding:6px 7px;font-size:13px}}
+@media (max-width:680px){.site-header__inner,.site-footer__inner{width:min(100% - 32px,1080px)}}
+/* ===== End site chrome ===== */
+
+/* Breadcrumb */
+.breadcrumb{margin:0 0 22px;color:var(--muted);font-size:13px}
+.breadcrumb ol{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;padding:0;list-style:none}
+.breadcrumb li+li::before{content:"/";margin-right:8px;color:var(--line-strong)}
+.breadcrumb a{color:var(--ink2)}
+
+/* Hero */
+.hero{padding:76px 0 64px;background:radial-gradient(900px 420px at 12% -8%,rgba(96,165,250,.2),transparent 62%),radial-gradient(720px 440px at 92% 2%,rgba(52,211,153,.12),transparent 64%)}
+.eyebrow{margin:0 0 12px;color:var(--accent2);font-size:12px;font-weight:750;letter-spacing:.14em;text-transform:uppercase}
+h1{max-width:780px;margin:0;font-size:clamp(40px,7vw,68px);line-height:1.02;letter-spacing:-1.6px}
+.hero-copy{max-width:720px;margin:22px 0 0;color:var(--ink2);font-size:clamp(17px,2.2vw,20px)}
+.hero-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:28px;color:var(--muted);font-size:14px}
+.hero-meta a{display:inline-flex;align-items:center;gap:7px;color:var(--ink2)}
+.hero-meta .separator{color:var(--line-strong)}
+.icon{width:16px;height:16px;fill:currentColor;flex:none}
+
+/* Featured */
+.section{padding:58px 0;border-top:1px solid var(--line)}
+.section-head{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:24px}
+.section-head h2{margin:0;font-size:27px;line-height:1.25;letter-spacing:-.4px}
+.section-head p{margin:4px 0 0;color:var(--muted)}
+.featured{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr);gap:30px;padding:32px;background:linear-gradient(135deg,var(--panel),#13213f);border:1px solid #2b4370;border-radius:18px}
+.featured::after{content:"";position:absolute;right:-100px;bottom:-150px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(96,165,250,.13),transparent 68%);pointer-events:none}
+.featured-copy{position:relative;z-index:1}
+.kicker{display:flex;align-items:center;gap:8px;margin:0 0 13px;color:var(--accent2);font-size:12px;font-weight:750;letter-spacing:.11em;text-transform:uppercase}
+.kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.featured h3{max-width:680px;margin:0;font-size:clamp(26px,4vw,38px);line-height:1.14;letter-spacing:-.6px}
+.featured p{max-width:680px;margin:16px 0;color:var(--ink2)}
+.tags{display:flex;gap:7px;flex-wrap:wrap;margin:17px 0 21px}
+.tag{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:4px 10px;background:var(--bg2);color:var(--muted);font-size:12px}
+.actions{display:flex;gap:11px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:9px 16px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);font-weight:700}
+.btn:hover{border-color:var(--accent);background:var(--panel2);text-decoration:none}
+.btn.primary{border-color:var(--accent);background:var(--accent);color:#07111f}
+.btn.primary:hover{background:#7db6fb}
+.feature-art{position:relative;z-index:1;align-self:stretch;min-height:260px;padding:22px;border:1px solid rgba(96,165,250,.28);border-radius:14px;background:#0c1529;display:flex;flex-direction:column;justify-content:space-between}
+.feature-art .number{font-size:52px;font-weight:800;line-height:1;color:var(--accent);letter-spacing:-2px}
+.feature-art .label{color:var(--muted);font-size:13px}
+.pipeline{position:relative;display:flex;align-items:center;justify-content:space-between;gap:5px;margin:24px 0}
+.pipeline::before{content:"";position:absolute;left:14px;right:14px;top:50%;height:2px;background:var(--line)}
+.node{position:relative;width:29px;height:29px;border:2px solid #2a4670;border-radius:8px;background:var(--panel2)}
+.node:nth-child(2),.node:nth-child(5){border-color:var(--accent);box-shadow:0 0 20px rgba(96,165,250,.18)}
+.node:nth-child(3){border-color:var(--amber)}
+.node:nth-child(4){border-color:var(--accent2)}
+.feature-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.feature-stat{padding:10px 9px;border:1px solid var(--line);border-radius:9px;background:var(--bg2)}
+.feature-stat b{display:block;font-size:15px;color:var(--ink)}
+.feature-stat span{font-size:11px;color:var(--muted)}
+
+/* Filter controls */
+.controls{display:grid;grid-template-columns:minmax(240px,1fr) auto;gap:15px;align-items:center;margin-bottom:24px}
+.search{position:relative}
+.search svg{position:absolute;left:14px;top:50%;width:18px;height:18px;transform:translateY(-50%);fill:none;stroke:var(--muted);stroke-width:2;pointer-events:none}
+.search input{width:100%;height:46px;padding:9px 42px 9px 43px;border:1px solid var(--line);border-radius:11px;background:var(--panel);color:var(--ink)}
+.search input::placeholder{color:var(--muted)}
+.search input:hover,.search input:focus{border-color:var(--line-strong)}
+.clear{position:absolute;right:7px;top:50%;width:32px;height:32px;padding:0;transform:translateY(-50%);border:0;border-radius:7px;background:transparent;color:var(--muted);cursor:pointer;font-size:21px;line-height:1}
+.clear:hover{background:var(--panel2);color:var(--ink)}
+.filters{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.filter{min-height:38px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink2);cursor:pointer;font-size:13px}
+.filter:hover{border-color:var(--line-strong);color:var(--ink)}
+.filter[aria-pressed="true"]{border-color:var(--accent);background:rgba(96,165,250,.15);color:var(--ink)}
+.result-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-8px 0 16px;color:var(--muted);font-size:13px}
+
+/* Post cards */
+.posts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}
+.post{position:relative;display:flex;min-width:0;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-radius:15px;background:var(--panel);transition:transform .16s ease,border-color .16s ease}
+.post:hover{transform:translateY(-3px);border-color:var(--line-strong)}
+.post:focus-within{border-color:var(--accent)}
+.post-visual{position:relative;height:144px;overflow:hidden;border-bottom:1px solid var(--line);background:var(--bg2)}
+.post-visual::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 35%,rgba(11,18,32,.55))}
+.visual-rag{background:radial-gradient(circle at 76% 30%,rgba(96,165,250,.28),transparent 34%),linear-gradient(135deg,#111b31,#12274a)}
+.visual-rag .doc{position:absolute;width:26px;height:35px;border:1px solid #46618c;border-radius:4px;background:#182743}
+.visual-rag .doc::before,.visual-rag .doc::after{content:"";position:absolute;left:5px;right:5px;height:2px;background:#4e6589}
+.visual-rag .doc::before{top:10px;box-shadow:0 7px #4e6589,0 14px #4e6589}
+.visual-rag .doc::after{display:none}
+.visual-rag .d1{left:9%;top:32px;transform:rotate(-8deg)}
+.visual-rag .d2{left:16%;top:51px;transform:rotate(6deg)}
+.visual-rag .d3{left:25%;top:25px;transform:rotate(2deg)}
+.visual-rag .arrow{position:absolute;left:38%;top:67px;width:29%;height:2px;background:var(--accent)}
+.visual-rag .arrow::after{content:"";position:absolute;right:-1px;top:-4px;border:5px solid transparent;border-left-color:var(--accent)}
+.visual-rag .db{position:absolute;right:13%;top:34px;width:54px;height:68px;border:2px solid var(--accent);border-radius:50%;box-shadow:0 18px 0 -2px #10213f,0 18px 0 0 var(--accent),0 36px 0 -2px #10213f,0 36px 0 0 var(--accent)}
+.visual-interactive{background:linear-gradient(135deg,#101b31,#152d43)}
+.visual-interactive .bars{position:absolute;left:9%;right:9%;bottom:28px;height:78px;display:flex;align-items:flex-end;gap:8px}
+.visual-interactive .bars i{display:block;flex:1;border-radius:4px 4px 0 0;background:var(--accent);opacity:.82}
+.visual-interactive .bars i:nth-child(1){height:34%}.visual-interactive .bars i:nth-child(2){height:72%;background:var(--accent2)}.visual-interactive .bars i:nth-child(3){height:49%;background:var(--amber)}.visual-interactive .bars i:nth-child(4){height:91%;background:var(--violet)}.visual-interactive .bars i:nth-child(5){height:62%}.visual-interactive .play{position:absolute;left:50%;top:50%;z-index:1;width:50px;height:50px;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.88);border-radius:50%;background:rgba(11,18,32,.73)}
+.visual-interactive .play::after{content:"";position:absolute;left:20px;top:14px;border:10px solid transparent;border-left:15px solid #fff}
+.visual-gemini{background:radial-gradient(circle at 72% 30%,rgba(167,139,250,.4),transparent 32%),linear-gradient(135deg,#16182f,#29205a)}
+.visual-gemini .bubble{position:absolute;left:12%;right:24%;height:30px;border:1px solid #6f62a5;border-radius:10px;background:rgba(167,139,250,.1)}
+.visual-gemini .b1{top:28px}.visual-gemini .b2{top:70px;left:27%;right:10%;border-color:#397e72;background:rgba(52,211,153,.1)}.visual-gemini .spark{position:absolute;right:15%;top:28px;color:#d8ceff;font-size:35px;line-height:1}
+.visual-rlhf{background:linear-gradient(135deg,#14223a,#2b2039)}
+.visual-rlhf .loop{position:absolute;left:50%;top:52%;width:106px;height:72px;transform:translate(-50%,-50%);border:2px dashed var(--violet);border-radius:50%}
+.visual-rlhf .loop::before,.visual-rlhf .loop::after{content:"";position:absolute;width:18px;height:18px;border-radius:50%;background:var(--panel);border:2px solid var(--accent)}
+.visual-rlhf .loop::before{left:-10px;top:25px}.visual-rlhf .loop::after{right:-10px;top:25px;border-color:var(--amber)}
+.visual-rlhf .arrowhead{position:absolute;left:calc(50% + 45px);top:35px;border:6px solid transparent;border-left-color:var(--violet);transform:rotate(-22deg)}
+.post-body{display:flex;flex:1;flex-direction:column;padding:20px}
+.post-meta{display:flex;align-items:center;gap:9px;margin-bottom:10px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+.post-meta .type{color:var(--accent2);font-weight:750}
+.post-meta .external{color:var(--violet)}
+.post h3{margin:0;font-size:20px;line-height:1.28;letter-spacing:-.2px}
+.post h3 a{color:var(--ink)}
+.post h3 a::after{content:"";position:absolute;inset:0}
+.post h3 a:hover{text-decoration:none;color:#fff}
+.post p{margin:11px 0 15px;color:var(--ink2);font-size:14px}
+.post .tags{position:relative;z-index:1;margin:auto 0 0}
+.post .tag{font-size:11px}
+.post-link{position:relative;z-index:1;display:inline-flex;align-items:center;gap:6px;margin-top:14px;width:max-content;font-size:14px;font-weight:700}
+.post-link span{transition:transform .14s ease}
+.post:hover .post-link span{transform:translateX(3px)}
+.empty{padding:46px 24px;border:1px dashed var(--line-strong);border-radius:14px;text-align:center;color:var(--muted)}
+.empty h3{margin:0 0 5px;color:var(--ink)}
+.empty p{margin:0}
+
+/* About the author (shared with articles) */
+.author-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px;align-items:start;padding:26px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(135deg,var(--panel),#13213f)}
+.author-avatar{display:grid;width:64px;height:64px;place-items:center;border:1px solid #2b4370;border-radius:18px;background:var(--bg2);color:var(--accent);font-size:22px;font-weight:800;letter-spacing:-.5px}
+.author-card .author-kicker{margin:0 0 4px;color:var(--accent2);font-size:12px;font-weight:750;letter-spacing:.12em;text-transform:uppercase}
+.author-card h2{margin:0 0 8px;color:var(--ink);font-size:22px;line-height:1.3;letter-spacing:-.2px}
+.author-card p{margin:0 0 16px;color:var(--ink2)}
+.author-actions{display:flex;gap:10px;flex-wrap:wrap}
+@media (max-width:560px){.author-card{grid-template-columns:1fr;padding:20px}}
+
+@media (max-width:840px){
+  .featured{grid-template-columns:1fr}.feature-art{min-height:210px}
+  .controls{grid-template-columns:1fr}.filters{justify-content:flex-start}
+}
+@media (max-width:680px){
+  .wrap{width:min(100% - 32px,var(--max))}
+  .hero{padding:54px 0 46px}
+  h1{font-size:42px;letter-spacing:-.8px}
+  .section{padding:45px 0}
+  .featured{padding:22px}
+  .posts{grid-template-columns:1fr}
+  .post-visual{height:132px}
+}
+@media (max-width:390px){
+  .hero-meta .separator{display:none}.hero-meta{align-items:flex-start;flex-direction:column;gap:7px}
+  .feature-stats{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.post,.post-link span{transition:none}}
+</style>
+</head>
+<body id="top">
+<a class="skip" href="#posts">Skip to posts</a>
+
+<!-- Site header: shared by ardyadipta.github.io and ardyadipta.github.io/blog. Keep the links identical in both repos. -->
+<div class="site-header">
+  <div class="site-header__inner">
+    <a class="site-brand" href="https://ardyadipta.github.io/">Ardya <span>Dipta</span> Nandaviri</a>
+    <nav class="site-menu" aria-label="Site">
+      <a href="https://ardyadipta.github.io/#experience">Experience</a>
+      <a href="https://ardyadipta.github.io/#projects">Projects</a>
+      <a href="index.html" aria-current="page">Writing</a>
+      <a href="https://ardyadipta.github.io/#speaking">Speaking</a>
+      <a href="https://ardyadipta.github.io/#contact">Contact</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <ol>
+        <li><a href="https://ardyadipta.github.io/">Home</a></li>
+        <li aria-current="page">Writing</li>
+      </ol>
+    </nav>
+    <p class="eyebrow">Field notes from building AI systems</p>
+    <h1>Ideas are useful when they survive production.</h1>
+    <p class="hero-copy">Practical writing on retrieval-augmented generation, reinforcement learning, applied GenAI, and the engineering decisions behind scalable machine learning systems.</p>
+    <div class="hero-meta">
+      <span>By <a href="https://ardyadipta.github.io/">Ardya Dipta Nandaviri</a></span>
+      <span class="separator" aria-hidden="true">·</span>
+      <a href="https://www.linkedin.com/in/ardyadipta" target="_blank" rel="me noopener"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5C4.98 4.88 3.87 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5zM.2 8h4.6v14H.2V8zm7.6 0h4.4v1.9h.1c.6-1.1 2.1-2.3 4.3-2.3 4.6 0 5.4 3 5.4 6.9V22h-4.6v-6.6c0-1.6 0-3.6-2.2-3.6s-2.5 1.7-2.5 3.5V22H7.8V8z"/></svg>LinkedIn</a>
+      <a href="https://github.com/ardyadipta" target="_blank" rel="me noopener"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="section" aria-labelledby="featured-heading">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2 id="featured-heading">Featured deep dive</h2>
+          <p>Architecture first, vendor choices second.</p>
+        </div>
+      </div>
+      <article class="featured">
+        <div class="featured-copy">
+          <p class="kicker">Production RAG · Long-form guide</p>
+          <h3>From 100,000 documents to grounded answers</h3>
+          <p>A practical design for ingesting mixed PDFs, scans, images, tables, and diagrams—then retrieving them with metadata-aware BM25 and semantic search, reciprocal rank fusion, reranking, and selective GraphRAG.</p>
+          <div class="tags" aria-label="Topics">
+            <span class="tag">RAG</span><span class="tag">System design</span><span class="tag">Hybrid retrieval</span><span class="tag">GraphRAG</span>
+          </div>
+          <div class="actions">
+            <a class="btn primary" href="deploying-a-100k-document-rag-knowledge-base.html">Read the article <span aria-hidden="true">→</span></a>
+            <a class="btn" href="rag-pipeline-explainer.html">Play the animation <span aria-hidden="true">▶</span></a>
+          </div>
+        </div>
+        <div class="feature-art" role="img" aria-label="The working corpus: 100,000 documents, 1.5 million pages, and 2 million chunks">
+          <div><span class="number">100K</span><div class="label">mixed documents enter the pipeline</div></div>
+          <div class="pipeline" aria-hidden="true"><i class="node"></i><i class="node"></i><i class="node"></i><i class="node"></i><i class="node"></i><i class="node"></i></div>
+          <div class="feature-stats">
+            <div class="feature-stat"><b>1.5M</b><span>pages</span></div>
+            <div class="feature-stat"><b>2M</b><span>chunks</span></div>
+            <div class="feature-stat"><b>3</b><span>retrievers</span></div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="posts" aria-labelledby="posts-heading">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2 id="posts-heading">All writing</h2>
+          <p>Search by title, summary, or topic.</p>
+        </div>
+      </div>
+
+      <div class="controls" role="search">
+        <div class="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          <label for="post-search" class="skip">Search posts</label>
+          <input id="post-search" type="search" autocomplete="off" placeholder="Search posts…">
+          <button class="clear" id="clear-search" type="button" aria-label="Clear search" title="Clear search" hidden>×</button>
+        </div>
+        <div class="filters" aria-label="Filter posts by topic">
+          <button class="filter" type="button" data-topic="all" aria-pressed="true">All</button>
+          <button class="filter" type="button" data-topic="rag" aria-pressed="false">RAG</button>
+          <button class="filter" type="button" data-topic="genai" aria-pressed="false">GenAI</button>
+          <button class="filter" type="button" data-topic="rl" aria-pressed="false">Reinforcement learning</button>
+          <button class="filter" type="button" data-topic="system-design" aria-pressed="false">System design</button>
+        </div>
+      </div>
+      <div class="result-line">
+        <output id="result-count" aria-live="polite">4 posts</output>
+        <span>Static HTML · no tracking</span>
+      </div>
+
+      <div class="posts" id="post-grid">
+        <!--
+          To add a post: duplicate an <article class="post"> block, update its text/link,
+          and give data-topics a space-separated list matching the filter data-topic values.
+          data-search supplies extra searchable terms that do not need to be visible.
+        -->
+        <article class="post" data-topics="rag genai system-design" data-search="100000 documents production knowledge base ingestion ocr metadata acl bm25 semantic hnsw hybrid retrieval reciprocal rank fusion rrf reranking graph graph rag evaluation">
+          <div class="post-visual visual-rag" aria-hidden="true"><i class="doc d1"></i><i class="doc d2"></i><i class="doc d3"></i><i class="arrow"></i><i class="db"></i></div>
+          <div class="post-body">
+            <div class="post-meta"><span class="type">Article</span><span>Long-form guide</span></div>
+            <h3><a href="deploying-a-100k-document-rag-knowledge-base.html">From 100,000 Documents to Grounded Answers</a></h3>
+            <p>A production-oriented RAG architecture: tiered parsing, canonical document IR, metadata and ACL filtering, BM25 plus HNSW, RRF, reranking, evaluation, and selective GraphRAG.</p>
+            <div class="tags" aria-label="Topics"><span class="tag">RAG</span><span class="tag">Hybrid retrieval</span><span class="tag">GraphRAG</span></div>
+            <a class="post-link" href="deploying-a-100k-document-rag-knowledge-base.html" tabindex="-1" aria-hidden="true">Read article <span>→</span></a>
+          </div>
+        </article>
+
+        <article class="post" data-topics="rag genai system-design" data-search="interactive animation animated walkthrough ingestion chunking metadata filtering bm25 semantic hnsw hybrid rrf reranking graph rag query latency">
+          <div class="post-visual visual-interactive" aria-hidden="true"><div class="bars"><i></i><i></i><i></i><i></i><i></i></div><i class="play"></i></div>
+          <div class="post-body">
+            <div class="post-meta"><span class="type">Interactive</span><span>12-step animation</span></div>
+            <h3><a href="rag-pipeline-explainer.html">Inside a 100,000-document RAG knowledge base</a></h3>
+            <p>Play, pause, and scrub through the entire production RAG pipeline—from raw mixed documents to a streamed, cited answer.</p>
+            <div class="tags" aria-label="Topics"><span class="tag">Interactive</span><span class="tag">RAG</span><span class="tag">System design</span></div>
+            <a class="post-link" href="rag-pipeline-explainer.html" tabindex="-1" aria-hidden="true">Open explainer <span>→</span></a>
+          </div>
+        </article>
+
+        <article class="post" data-topics="rag genai" data-search="google gemini mike ross chatbot agent document querying qna faiss langchain assistant employee productivity">
+          <div class="post-visual visual-gemini" aria-hidden="true"><i class="bubble b1"></i><i class="bubble b2"></i><span class="spark">✦</span></div>
+          <div class="post-body">
+            <div class="post-meta"><span class="type external">Medium article</span><span>GenAI</span></div>
+            <h3><a href="https://medium.com/@ardyadipta/how-google-gemini-can-help-you-create-a-mike-ross-like-chatbot-agent-in-minutes-6fd8199e3122" target="_blank" rel="noopener">How Google Gemini can help create a “Mike Ross” chatbot agent</a></h3>
+            <p>Building a document-querying assistant with Google Gemini, FAISS, and LangChain for fast, grounded access to organizational knowledge.</p>
+            <div class="tags" aria-label="Topics"><span class="tag">Gemini</span><span class="tag">FAISS</span><span class="tag">LangChain</span></div>
+            <a class="post-link" href="https://medium.com/@ardyadipta/how-google-gemini-can-help-you-create-a-mike-ross-like-chatbot-agent-in-minutes-6fd8199e3122" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">Read on Medium <span>↗</span></a>
+          </div>
+        </article>
+
+        <article class="post" data-topics="genai rl" data-search="teaching ai understand reinforcement learning human feedback rlhf gpt fine tuning fine-tuning user engagement reward model language model">
+          <div class="post-visual visual-rlhf" aria-hidden="true"><i class="loop"></i><i class="arrowhead"></i></div>
+          <div class="post-body">
+            <div class="post-meta"><span class="type external">Medium article</span><span>Reinforcement learning</span></div>
+            <h3><a href="https://medium.com/@ardyadipta/teaching-ai-to-understand-us-reinforcement-learning-with-human-feedback-rlhf-5fc5ae16da40" target="_blank" rel="noopener">Teaching AI to understand us with RLHF</a></h3>
+            <p>An introduction to fine-tuning language models with reinforcement learning from human feedback, from preference data to improved model behavior.</p>
+            <div class="tags" aria-label="Topics"><span class="tag">RLHF</span><span class="tag">LLMs</span><span class="tag">Fine-tuning</span></div>
+            <a class="post-link" href="https://medium.com/@ardyadipta/teaching-ai-to-understand-us-reinforcement-learning-with-human-feedback-rlhf-5fc5ae16da40" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">Read on Medium <span>↗</span></a>
+          </div>
+        </article>
+      </div>
+
+      <div class="empty" id="empty-state" hidden>
+        <h3>No posts found</h3>
+        <p>Try another search or choose a different topic.</p>
+      </div>
+      <noscript><p class="empty">JavaScript is disabled. All posts remain available above; only search and filtering are unavailable.</p></noscript>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="author-heading">
+    <div class="wrap">
+      <div class="author-card">
+        <div class="author-avatar" aria-hidden="true">AD</div>
+        <div>
+          <p class="author-kicker">About the author</p>
+          <h2 id="author-heading">Ardya Dipta Nandaviri</h2>
+          <p>Senior AI/ML Consultant at AWS Professional Services with 10+ years of experience building production AI/ML systems. Previously Head of Data Science at Kalbe Farma and Lead Data Scientist at Gojek; Carnegie Mellon Robotics alum based in Singapore.</p>
+          <div class="author-actions">
+            <a class="btn primary" href="https://ardyadipta.github.io/">View portfolio</a>
+            <a class="btn" href="https://www.linkedin.com/in/ardyadipta" target="_blank" rel="me noopener">Follow on LinkedIn</a>
+            <a class="btn" href="https://medium.com/@ardyadipta" target="_blank" rel="me noopener">Medium <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Site footer: shared by ardyadipta.github.io and ardyadipta.github.io/blog. -->
+<footer class="site-footer">
+  <div class="site-footer__inner">
+    <span>&copy; 2026 Ardya Dipta Nandaviri. All rights reserved.</span>
+    <nav class="site-footer__links" aria-label="Footer">
+      <a href="https://ardyadipta.github.io/">Home</a>
+      <a href="index.html">Writing</a>
+      <a href="https://www.linkedin.com/in/ardyadipta" target="_blank" rel="me noopener">LinkedIn</a>
+      <a href="https://github.com/ardyadipta" target="_blank" rel="me noopener">GitHub</a>
+      <a href="#top">Back to top</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function(){
+  'use strict';
+
+  const input = document.getElementById('post-search');
+  const clearButton = document.getElementById('clear-search');
+  const filters = Array.from(document.querySelectorAll('.filter'));
+  const posts = Array.from(document.querySelectorAll('.post'));
+  const count = document.getElementById('result-count');
+  const empty = document.getElementById('empty-state');
+  const allowedTopics = new Set(filters.map(function(button){ return button.dataset.topic; }));
+  const params = new URLSearchParams(window.location.search);
+  let topic = allowedTopics.has(params.get('topic')) ? params.get('topic') : 'all';
+
+  input.value = params.get('q') || '';
+
+  posts.forEach(function(post){
+    post.dataset.haystack = (post.textContent + ' ' + (post.dataset.search || '')).toLocaleLowerCase();
+  });
+
+  function updateUrl(query){
+    const next = new URLSearchParams();
+    if(query){ next.set('q', query); }
+    if(topic !== 'all'){ next.set('topic', topic); }
+    const suffix = next.toString();
+    try{
+      window.history.replaceState(null, '', window.location.pathname + (suffix ? '?' + suffix : '') + window.location.hash);
+    }catch(error){
+      /* Static filtering still works when history is unavailable, for example in a restricted local preview. */
+    }
+  }
+
+  function applyFilters(){
+    const query = input.value.trim().toLocaleLowerCase();
+    let visible = 0;
+
+    posts.forEach(function(post){
+      const topics = (post.dataset.topics || '').split(/\s+/);
+      const topicMatch = topic === 'all' || topics.includes(topic);
+      const queryMatch = !query || post.dataset.haystack.includes(query);
+      const show = topicMatch && queryMatch;
+      post.hidden = !show;
+      if(show){ visible += 1; }
+    });
+
+    filters.forEach(function(button){
+      button.setAttribute('aria-pressed', String(button.dataset.topic === topic));
+    });
+    clearButton.hidden = !query;
+    empty.hidden = visible !== 0;
+    count.value = visible + (visible === 1 ? ' post' : ' posts');
+    count.textContent = count.value;
+    updateUrl(query);
+  }
+
+  input.addEventListener('input', applyFilters);
+  input.addEventListener('keydown', function(event){
+    if(event.key === 'Escape' && input.value){
+      input.value = '';
+      applyFilters();
+    }
+  });
+  clearButton.addEventListener('click', function(){
+    input.value = '';
+    input.focus();
+    applyFilters();
+  });
+  filters.forEach(function(button){
+    button.addEventListener('click', function(){
+      topic = button.dataset.topic;
+      applyFilters();
+    });
+  });
+
+  applyFilters();
+})();
+</script>
+</body>
+</html>
