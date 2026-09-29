@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inside a 100,000-document RAG knowledge base: an animated walkthrough</title>
 <meta name="description" content="Step-by-step animated explainer of a production RAG pipeline: ingestion, chunking, metadata filtering, BM25, semantic search, hybrid retrieval with RRF and reranking, GraphRAG, and the end-to-end query path.">
+<link rel="canonical" href="https://ardyadipta.github.io/blog/rag-pipeline-explainer.html">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Ctext x='32' y='42' font-family='Helvetica,Arial,sans-serif' font-size='30' font-weight='700' fill='%2360a5fa' text-anchor='middle'%3EAD%3C/text%3E%3C/svg%3E">
+<script>
+/* When the article embeds this walkthrough in an iframe, hide the site header, breadcrumb, and footer. */
+if (window.self !== window.top) { document.documentElement.classList.add('is-embedded'); }
+</script>
 <style>
 :root{--bg:#f4f6fa;--panel:#fff;--ink:#0f172a;--muted:#5b6478;--line:#d5dbe5;--blue:#2563eb;--blue-soft:#dbeafe;--focus:#f59e0b}
 *{box-sizing:border-box}
@@ -13,6 +19,7 @@ header{max-width:1280px;margin:0 auto;padding:20px 24px 6px}
 h1{font-size:22px;margin:0 0 4px}
 header p{margin:0;color:var(--muted)}
 .app{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px;max-width:1280px;margin:0 auto;padding:12px 24px 32px}
+.app>main{min-width:0}
 nav ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
 nav button{width:100%;text-align:left;background:transparent;border:1px solid transparent;border-radius:8px;padding:7px 10px;font:inherit;font-size:14px;color:var(--ink);cursor:pointer;display:flex;gap:8px;align-items:baseline}
 nav button .n{color:var(--muted);font-variant-numeric:tabular-nums;min-width:1.5em}
@@ -39,7 +46,7 @@ kbd{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef2f7;bor
 code{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef2f7;border-radius:4px;padding:0 4px}
 .hint{color:var(--muted);font-size:13px;margin:8px 0 0}
 footer{max-width:1280px;margin:0 auto;padding:8px 24px 28px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
-@media (max-width:900px){.app{grid-template-columns:1fr}nav ol{flex-direction:row;overflow-x:auto;padding-bottom:6px}nav button{white-space:nowrap}}
+@media (max-width:900px){.app{grid-template-columns:minmax(0,1fr)}.app>nav{min-width:0}nav ol{flex-direction:row;overflow-x:auto;padding-bottom:6px}nav button{white-space:nowrap}}
 /* SVG vocabulary */
 svg text{font-family:inherit;fill:var(--ink)}
 svg .t-xs{font-size:10.5px}svg .t-sm{font-size:12px}svg .t-md{font-size:14px}svg .t-lg{font-size:18px;font-weight:700}svg .t-big{font-size:30px;font-weight:700}
@@ -65,10 +72,59 @@ svg .ring{fill:none;stroke:#2563eb;stroke-width:2}svg .ring-green{stroke:#16a34a
 svg .star{fill:#f59e0b;stroke:#b45309;stroke-width:1}
 svg .fill-blue{fill:#3b82f6;stroke:none}
 svg .hull{stroke-width:1.5;stroke-dasharray:6 4}
+
+/* ===== Site chrome: shared by ardyadipta.github.io and ardyadipta.github.io/blog. Keep identical in both repos. ===== */
+.site-header{position:sticky;top:0;z-index:60;background:rgba(11,18,32,.9);border-bottom:1px solid #22304d;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:#e6edf7;font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.site-header__inner{display:flex;align-items:center;justify-content:space-between;gap:20px;width:min(100% - 48px,1080px);min-height:60px;margin:0 auto}
+.site-brand{flex:none;color:#e6edf7;font-size:16px;font-weight:750;letter-spacing:.1px;text-decoration:none;white-space:nowrap}
+.site-brand span{color:#60a5fa}
+.site-brand:hover{color:#fff;text-decoration:none}
+.site-menu{display:flex;align-items:center;gap:2px;min-width:0}
+.site-menu a{padding:7px 11px;border-radius:8px;color:#b7c3d8;font-size:14px;font-weight:500;text-decoration:none;white-space:nowrap}
+.site-menu a:hover{background:rgba(96,165,250,.1);color:#e6edf7;text-decoration:none}
+.site-menu a[aria-current]{background:rgba(96,165,250,.16);color:#fff;font-weight:650}
+.site-header a:focus-visible,.site-footer a:focus-visible{outline:3px solid #fbbf24;outline-offset:2px;border-radius:6px}
+.site-footer{max-width:none;margin:0;padding:28px 0 40px;border-top:1px solid #22304d;background:#0b1220;color:#8290ab;font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.site-footer__inner{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;width:min(100% - 48px,1080px);margin:0 auto}
+.site-footer__links{display:flex;gap:6px 18px;flex-wrap:wrap}
+.site-footer__links a{color:#b7c3d8;text-decoration:none}
+.site-footer__links a:hover{color:#e6edf7;text-decoration:underline}
+@media (max-width:720px){.site-header__inner{display:block;min-height:0;padding:10px 0 6px}.site-brand{display:inline-block;font-size:15px}.site-menu{gap:0;margin:3px -7px 0;overflow-x:auto;scrollbar-width:none}.site-menu::-webkit-scrollbar{display:none}.site-menu a{padding:6px 7px;font-size:13px}}
+@media (max-width:680px){.site-header__inner,.site-footer__inner{width:min(100% - 32px,1080px)}}
+/* ===== End site chrome ===== */
+
+/* Standalone page only. Inside the article's iframe (html.is-embedded) the article provides this navigation. */
+.site-header{position:relative}
+.site-footer{margin-top:8px}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:0 0 10px;color:var(--muted);font-size:13px}
+.crumbs a{color:var(--blue);font-weight:600;text-decoration:none}
+.crumbs a:hover{text-decoration:underline}
+.crumbs a:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:4px}
+.crumbs [aria-hidden="true"]{color:#94a3b8}
+.is-embedded .site-header,.is-embedded .crumbs,.is-embedded .site-footer{display:none!important}
 </style>
 </head>
 <body>
+<!-- Site header: shared by ardyadipta.github.io and ardyadipta.github.io/blog. Keep the links identical in both repos. -->
+<div class="site-header">
+  <div class="site-header__inner">
+    <a class="site-brand" href="https://ardyadipta.github.io/">Ardya <span>Dipta</span> Nandaviri</a>
+    <nav class="site-menu" aria-label="Site">
+      <a href="https://ardyadipta.github.io/#experience">Experience</a>
+      <a href="https://ardyadipta.github.io/#projects">Projects</a>
+      <a href="index.html" aria-current="true">Writing</a>
+      <a href="https://ardyadipta.github.io/#speaking">Speaking</a>
+      <a href="https://ardyadipta.github.io/#contact">Contact</a>
+    </nav>
+  </div>
+</div>
 <header>
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="https://ardyadipta.github.io/">Home</a><span aria-hidden="true">/</span>
+    <a href="index.html">Writing</a><span aria-hidden="true">/</span>
+    <a href="deploying-a-100k-document-rag-knowledge-base.html">Production RAG knowledge base</a><span aria-hidden="true">/</span>
+    <span aria-current="page">Interactive walkthrough</span>
+  </nav>
   <h1>Inside a 100,000-document RAG knowledge base</h1>
   <p>An animated walkthrough of the pipeline, from raw PDFs and images to grounded, cited answers. Pick a step, press play, or scrub the timeline.</p>
 </header>
@@ -93,7 +149,18 @@ svg .hull{stroke-width:1.5;stroke-dasharray:6 4}
     </section>
   </main>
 </div>
-<footer>&copy; 2026 Ardya Dipta Nandaviri. All rights reserved.</footer>
+<!-- Site footer: shared by ardyadipta.github.io and ardyadipta.github.io/blog. No "Back to top" here: a hash change would reset the walkthrough step. -->
+<footer class="site-footer">
+  <div class="site-footer__inner">
+    <span>&copy; 2026 Ardya Dipta Nandaviri. All rights reserved.</span>
+    <nav class="site-footer__links" aria-label="Footer">
+      <a href="https://ardyadipta.github.io/">Home</a>
+      <a href="index.html">Writing</a>
+      <a href="https://www.linkedin.com/in/ardyadipta" target="_blank" rel="me noopener">LinkedIn</a>
+      <a href="https://github.com/ardyadipta" target="_blank" rel="me noopener">GitHub</a>
+    </nav>
+  </div>
+</footer>
 <pre id="errlog" hidden></pre>
 <script>
 (function(){
